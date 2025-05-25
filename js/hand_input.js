@@ -161,7 +161,7 @@ export const HandInput = {
             // Fist just opened - check if enough time passed since last gesture
             if (
               currentTime - this.lastLeftFistOpenTime >
-              AppConfig.handInput.gestureCooldown
+              AppConfig.ui.gestureCooldown
             ) {
               processedData.left.cyclePatchGesture = true;
               this.lastLeftFistOpenTime = currentTime;

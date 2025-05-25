@@ -15,10 +15,26 @@
     "reverbMix": 0.35
   },
   "octaveOffset": 0,
-  "arpeggiator": null,
+  "arpeggiator": {
+    "interval": 200,
+    "pattern": [
+      -12,
+      -8,
+      -5,
+      0,
+      4,
+      7,
+      12,
+      7,
+      4,
+      0,
+      -5,
+      -8
+    ]
+  },
   "visuals": {
     "rayDensityMultiplier": 30,
-    "raySpeedMultiplier": 15,
+    "raySpeedMultiplier": 1,
     "rayColor": "rgba(255, 220, 100, 0.8)",
     "crosshairBaseSize": 180
   }

@@ -3,17 +3,16 @@ import { AppConfig } from './config.js';
 
 /**
  * Renderer handles all visual output on the HTML5 canvas.
- * Optimized for 60fps performance with object pooling and efficient drawing.
+ * Optimized for 60fps performance with simple, effective ray effects.
  */
 export const Renderer = {
   canvas: null,
   ctx: null,
   video: null,
 
-  // Performance-critical: Pre-allocated ray pool to avoid garbage collection
-  rayPool: [],
-  activeRays: [],
-  MAX_RAYS: 100,
+  // Simple ray tracking
+  rayStarts: [],
+  lastFrameTime: Date.now(),
 
   notes: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
 
@@ -21,37 +20,15 @@ export const Renderer = {
   config: { ...AppConfig.visuals },
   audioConfig: { ...AppConfig.audioDefaults },
 
-  // Performance tracking
-  lastFrameTime: 0,
-  currentHandData: null,
-
   /**
    * Initialize renderer with canvas and video elements
    */
   init(canvasEl, videoEl) {
     this.canvas = canvasEl;
-    this.ctx = this.canvas.getContext('2d', {
-      alpha: false, // Opaque canvas is faster
-      desynchronized: true, // Hint for better performance
-    });
+    this.ctx = this.canvas.getContext('2d');
     this.video = videoEl;
-
-    // Pre-allocate ray pool to avoid runtime allocations
-    for (let i = 0; i < this.MAX_RAYS; i++) {
-      this.rayPool.push({
-        x: 0,
-        y: 0,
-        angle: 0,
-        distance: 0,
-        maxDistance: 0,
-        opacity: 0,
-        speed: 0,
-        active: false,
-      });
-    }
-
     this.resize();
-    this.lastFrameTime = performance.now();
+    this.lastFrameTime = Date.now();
   },
 
   /**
@@ -72,7 +49,7 @@ export const Renderer = {
   },
 
   /**
-   * Main render loop - optimized for performance
+   * Main render loop
    */
   drawFrame(
     rawResults,
@@ -83,16 +60,12 @@ export const Renderer = {
   ) {
     if (!this.ctx) return;
 
-    // Store current hand data for ray cleanup
-    this.currentHandData = handData;
-
-    const now = performance.now();
-    const deltaTime = Math.min((now - this.lastFrameTime) / 1000, 0.1); // Cap delta to avoid spiral of death
+    const now = Date.now();
+    const deltaTime = (now - this.lastFrameTime) / 1000.0;
     this.lastFrameTime = now;
 
     // Clear canvas
-    this.ctx.fillStyle = 'black';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     // Draw mirrored video feed
     if (this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
@@ -111,23 +84,21 @@ export const Renderer = {
     // Draw pitch markers
     this._drawPitchMarkers();
 
-    // Update and draw rays first (behind hands)
-    this._updateRays(deltaTime);
-
-    // Draw hand crosshairs
+    // Draw hands and their rays
     if (handData.left) {
       const x = handData.left.x * this.canvas.width;
       const y = handData.left.y * this.canvas.height;
-      this._spawnRays(x, y, handData.left.y, true, deltaTime);
-      this._drawCrosshair(x, y, true, handData.left.y);
+      this._drawCrosshair(x, y, true, handData.left.y, deltaTime);
     }
 
     if (handData.right) {
       const x = handData.right.x * this.canvas.width;
       const y = handData.right.y * this.canvas.height;
-      this._spawnRays(x, y, handData.right.y, false, deltaTime);
-      this._drawCrosshair(x, y, false, handData.right.y);
+      this._drawCrosshair(x, y, false, handData.right.y, deltaTime);
     }
+
+    // Update and draw rays
+    this._updateRays(deltaTime, handData);
 
     // Draw UI text
     if (showNoHandsMessage && messageOpacity > 0) {
@@ -140,168 +111,191 @@ export const Renderer = {
   },
 
   /**
-   * Spawn new rays from hand position - uses object pool
+   * Draw hand crosshair with rays and text
    */
-  _spawnRays(x, y, normalizedY, isLeftHand, deltaTime) {
-    const intensity = 1 - normalizedY; // Higher hand = more rays
-    const spawnRate = this.config.rayDensityMultiplier * (1 + intensity * 2);
+  _drawCrosshair(x, y, isLeftHand, normalizedY, deltaTime) {
+    const now = Date.now();
 
-    // Spawn rays based on rate and time
-    if (Math.random() < spawnRate * deltaTime) {
-      // Get inactive ray from pool
-      const ray = this.rayPool.find((r) => !r.active);
-      if (!ray) return; // Pool exhausted, skip spawning
+    // Calculate intensity based on Y position
+    const normalizedYForEffect = isLeftHand
+      ? 1 - normalizedY // Left hand: higher = more intensity
+      : this._calculateRightHandIntensity(normalizedY); // Right hand: based on overtones
 
-      // Activate and configure ray
-      ray.active = true;
-      ray.x = x;
-      ray.y = y;
-      ray.angle = Math.random() * Math.PI * 2;
-      ray.distance = 0;
-      ray.maxDistance =
-        this.config.crosshairBaseSize * (0.4 + Math.random() * 0.6);
-      ray.opacity = 0.2 + Math.random() * 0.5;
-      ray.speed =
-        this.config.crosshairBaseSize *
-        0.1 *
-        this.config.raySpeedMultiplier *
-        (1 + intensity * 0.5);
+    const sizeMultiplier = 1 + normalizedYForEffect * 3;
+    const currentCrosshairSize = this.config.crosshairBaseSize * sizeMultiplier;
 
-      this.activeRays.push(ray);
+    // Spawn rays
+    const raySpeed =
+      this.config.crosshairBaseSize * 0.5 +
+      normalizedYForEffect * this.config.crosshairBaseSize * 2;
+    const raySpawnRate =
+      (0.5 + normalizedYForEffect * 1.5) *
+      (this.config.rayDensityMultiplier || 1);
+
+    if (Math.random() < raySpawnRate * deltaTime * 60) {
+      // Normalize to 60fps
+      this.rayStarts.push({
+        spawnX: x,
+        spawnY: y,
+        angle: Math.random() * Math.PI * 2,
+        distance: 0,
+        isLeftHandSource: isLeftHand,
+        speed: raySpeed * (this.config.raySpeedMultiplier || 1),
+        maxDistance: currentCrosshairSize,
+      });
     }
-  },
-
-  /**
-   * Update and draw all active rays
-   */
-  _updateRays(deltaTime) {
-    // Clear all rays if no hands are detected
-    if (!this.currentHandData || this.currentHandData.activeHandsCount === 0) {
-      this.activeRays = [];
-      this.rayPool.forEach((ray) => (ray.active = false));
-      return;
-    }
-
-    // Process rays in reverse order for safe removal
-    for (let i = this.activeRays.length - 1; i >= 0; i--) {
-      const ray = this.activeRays[i];
-
-      // Update ray position
-      ray.distance += ray.speed * deltaTime;
-
-      // Calculate fade
-      const progress = ray.distance / ray.maxDistance;
-      const alpha = ray.opacity * Math.max(0, 1 - progress * progress);
-
-      if (alpha > 0.01 && ray.distance < ray.maxDistance) {
-        // Draw ray
-        const tailLength = 40 * (this.config.rayLengthMultiplier || 1);
-        const startDist = Math.max(0, ray.distance - tailLength);
-
-        this.ctx.strokeStyle = this._getRayColor(alpha);
-        this.ctx.lineWidth =
-          (1 + (1 - progress) * 1) * (this.config.rayWidthMultiplier || 1);
-        this.ctx.beginPath();
-        this.ctx.moveTo(
-          ray.x + Math.cos(ray.angle) * startDist,
-          ray.y + Math.sin(ray.angle) * startDist
-        );
-        this.ctx.lineTo(
-          ray.x + Math.cos(ray.angle) * ray.distance,
-          ray.y + Math.sin(ray.angle) * ray.distance
-        );
-        this.ctx.stroke();
-      } else {
-        // Return ray to pool
-        ray.active = false;
-        this.activeRays.splice(i, 1);
-      }
-    }
-  },
-
-  /**
-   * Get ray color with specified alpha
-   */
-  _getRayColor(alpha) {
-    const baseColor = this.config.rayColor || 'rgba(255, 255, 255, 0.7)';
-    // Extract RGB values and apply new alpha
-    const match = baseColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-    if (match) {
-      return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha})`;
-    }
-    return `rgba(255, 255, 255, ${alpha})`;
-  },
-
-  /**
-   * Draw hand crosshair with text
-   */
-  _drawCrosshair(x, y, isLeftHand, normalizedY) {
-    const intensity = 1 - normalizedY;
-    const size = (this.config.crosshairBaseSize * (1 + intensity * 2)) / 2;
 
     // Draw crosshair lines
+    this.ctx.save();
     this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-    this.ctx.lineWidth = 2 + intensity * 2;
-    this.ctx.beginPath();
+    this.ctx.lineWidth = 2;
+    const S = currentCrosshairSize / 2;
 
     // Vertical line
-    this.ctx.moveTo(x, y - size);
-    this.ctx.lineTo(x, y + size);
-    // Horizontal line
-    this.ctx.moveTo(x - size, y);
-    this.ctx.lineTo(x + size, y);
-    // Diagonals
-    const diag = size * 0.707;
-    this.ctx.moveTo(x - diag, y - diag);
-    this.ctx.lineTo(x + diag, y + diag);
-    this.ctx.moveTo(x - diag, y + diag);
-    this.ctx.lineTo(x + diag, y - diag);
+    this.ctx.beginPath();
+    this.ctx.moveTo(x, y - S);
+    this.ctx.lineTo(x, y + S);
+    this.ctx.stroke();
 
+    // Horizontal line
+    this.ctx.beginPath();
+    this.ctx.moveTo(x - S, y);
+    this.ctx.lineTo(x + S, y);
+    this.ctx.stroke();
+
+    // Diagonal lines
+    const diagOffset = S / 1.414;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x - diagOffset, y - diagOffset);
+    this.ctx.lineTo(x + diagOffset, y + diagOffset);
+    this.ctx.stroke();
+
+    this.ctx.beginPath();
+    this.ctx.moveTo(x - diagOffset, y + diagOffset);
+    this.ctx.lineTo(x + diagOffset, y - diagOffset);
     this.ctx.stroke();
 
     // Draw text labels
-    this.ctx.font = `bold ${this.config.crosshairFontSize}px -apple-system, system-ui, sans-serif`;
+    this.ctx.font = `${this.config.crosshairFontSize}px -apple-system, system-ui, sans-serif`;
     this.ctx.fillStyle = 'white';
-    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-    this.ctx.shadowBlur = 5;
-
-    const textOffset = size + 20;
-    const lineHeight = this.config.crosshairFontSize * 1.2;
+    this.ctx.textBaseline = 'middle';
+    const textOffset = S + 20;
 
     if (isLeftHand) {
-      // Left hand controls pitch and reverb
       this.ctx.textAlign = 'right';
       this.ctx.fillText(
         `Note: ${this._getNoteFromY(normalizedY)}`,
         x - textOffset,
-        y - lineHeight / 2
+        y - this.config.crosshairFontSize / 2 - 5
       );
       this.ctx.fillText(
         `Reverb: ${Math.round((x / this.canvas.width) * 100)}%`,
         x - textOffset,
-        y + lineHeight / 2
+        y + this.config.crosshairFontSize / 2 + 5
       );
     } else {
-      // Right hand controls vibrato and overtones
       this.ctx.textAlign = 'left';
       const vibratoAmount = 1 - x / this.canvas.width;
       this.ctx.fillText(
         `Vibrato: ${Math.round(vibratoAmount * 100)}%`,
         x + textOffset,
-        y - lineHeight / 2
+        y - this.config.crosshairFontSize / 2 - 5
       );
 
       const overtoneCount = Math.max(1, this.audioConfig.overtoneCount);
-      const activeOvertones = 1 + Math.floor(intensity * (overtoneCount - 1));
+      const activeOvertones =
+        1 + Math.floor((1 - normalizedY) * (overtoneCount - 1));
       this.ctx.fillText(
         `Overtones: ${activeOvertones}`,
         x + textOffset,
-        y + lineHeight / 2
+        y + this.config.crosshairFontSize / 2 + 5
       );
     }
 
-    // Reset shadow
-    this.ctx.shadowBlur = 0;
+    this.ctx.restore();
+  },
+
+  /**
+   * Calculate right hand intensity based on overtones
+   */
+  _calculateRightHandIntensity(normalizedY) {
+    const overtoneControl = 1 - normalizedY;
+    const overtoneCount = Math.max(1, this.audioConfig.overtoneCount);
+    const numActiveOvertones =
+      1 + Math.floor(overtoneControl * (overtoneCount - 1));
+
+    if (overtoneCount <= 1) {
+      return 0;
+    }
+    return (numActiveOvertones - 1) / (overtoneCount - 1);
+  },
+
+  /**
+   * Update and draw all rays
+   */
+  _updateRays(deltaTime, handData) {
+    if (!handData || handData.activeHandsCount === 0) {
+      this.rayStarts = [];
+      return;
+    }
+
+    const nextRayStarts = [];
+    const leftX = handData.left ? handData.left.x * this.canvas.width : null;
+    const leftY = handData.left ? handData.left.y * this.canvas.height : null;
+    const rightX = handData.right ? handData.right.x * this.canvas.width : null;
+    const rightY = handData.right
+      ? handData.right.y * this.canvas.height
+      : null;
+
+    this.rayStarts.forEach((ray) => {
+      ray.distance += ray.speed * deltaTime;
+
+      // Update ray origin based on current hand position
+      let currentX, currentY;
+      if (ray.isLeftHandSource && leftX !== null) {
+        currentX = leftX;
+        currentY = leftY;
+      } else if (!ray.isLeftHandSource && rightX !== null) {
+        currentX = rightX;
+        currentY = rightY;
+      } else {
+        return; // Skip if hand not present
+      }
+
+      const alpha = Math.max(0, 1 - ray.distance / ray.maxDistance);
+
+      if (alpha > 0 && ray.distance < ray.maxDistance) {
+        this.ctx.beginPath();
+
+        // Use patch ray color if specified
+        const baseColor = this.config.rayColor || 'rgba(255, 255, 255, 0.7)';
+        const match = baseColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (match) {
+          this.ctx.strokeStyle = `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha})`;
+        } else {
+          this.ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        }
+
+        this.ctx.lineWidth = 1;
+
+        const startDist = Math.max(0, ray.distance - 40);
+        const endDist = ray.distance;
+
+        this.ctx.moveTo(
+          currentX + Math.cos(ray.angle) * startDist,
+          currentY + Math.sin(ray.angle) * startDist
+        );
+        this.ctx.lineTo(
+          currentX + Math.cos(ray.angle) * endDist,
+          currentY + Math.sin(ray.angle) * endDist
+        );
+        this.ctx.stroke();
+
+        nextRayStarts.push(ray);
+      }
+    });
+
+    this.rayStarts = nextRayStarts;
   },
 
   /**
@@ -323,6 +317,8 @@ export const Renderer = {
     const octaveRange = this.config.endOctave - this.config.startOctave + 1;
     const totalNotes = octaveRange * 12;
 
+    this.ctx.save();
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
     this.ctx.font = `${this.config.pitchMarkerFontSize}px monospace`;
     this.ctx.textAlign = 'right';
     this.ctx.textBaseline = 'middle';
@@ -347,7 +343,6 @@ export const Renderer = {
 
       // Draw text for C and G notes
       if (note === 'C' || note === 'G') {
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         this.ctx.fillText(
           `${note}${octave}`,
           this.canvas.width - lineLength - 5,
@@ -355,6 +350,7 @@ export const Renderer = {
         );
       }
     }
+    this.ctx.restore();
   },
 
   /**
@@ -368,8 +364,6 @@ export const Renderer = {
     this.ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
-    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-    this.ctx.shadowBlur = 10;
     this.ctx.fillText(
       'Bring both hands on screen to cast spells',
       this.canvas.width / 2,
@@ -394,11 +388,7 @@ export const Renderer = {
    * Clean up resources
    */
   cleanup() {
-    // Clear rays
-    this.activeRays = [];
-    this.rayPool.forEach((ray) => (ray.active = false));
-
-    // Clear canvas
+    this.rayStarts = [];
     if (this.ctx && this.canvas) {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }

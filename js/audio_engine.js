@@ -28,12 +28,15 @@ export const AudioEngine = {
     try {
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+      // Create reverb first
+      const reverb = await this.createReverb();
+
       // Create audio nodes
       this.nodes = {
         masterGain: this.audioCtx.createGain(),
         envelope: this.audioCtx.createGain(),
         filter: this.audioCtx.createBiquadFilter(),
-        reverb: await this.createReverb(),
+        reverb: reverb,
         reverbGain: this.audioCtx.createGain(),
         lfo: this.audioCtx.createOscillator(),
         lfoGain: this.audioCtx.createGain(),
@@ -49,17 +52,17 @@ export const AudioEngine = {
       this.nodes.lfo.frequency.value = this.currentSettings.lfoMinFreq;
       this.nodes.lfoGain.gain.value = 0; // Start with no vibrato
 
-      // Connect audio graph
-      // Main signal path: oscillators -> master -> envelope -> filter -> output
-      this.nodes.masterGain.connect(this.nodes.envelope);
-      this.nodes.envelope.connect(this.nodes.filter);
-      this.nodes.filter.connect(this.audioCtx.destination);
+      // Connect audio graph - matching original signal flow
+      // oscillators -> masterGain -> filter -> envelope -> destination
+      this.nodes.masterGain.connect(this.nodes.filter);
+      this.nodes.filter.connect(this.nodes.envelope);
+      this.nodes.envelope.connect(this.audioCtx.destination);
 
-      // Reverb (parallel to main output)
+      // Reverb send (from envelope)
       this.nodes.envelope.connect(this.nodes.reverb);
       this.nodes.reverb.connect(this.nodes.reverbGain);
       this.nodes.reverbGain.connect(this.audioCtx.destination);
-      this.nodes.reverbGain.gain.value = this.currentSettings.reverbMix;
+      this.nodes.reverbGain.gain.value = 0; // Start with no reverb
 
       // LFO setup
       this.nodes.lfo.connect(this.nodes.lfoGain);
@@ -84,11 +87,11 @@ export const AudioEngine = {
   },
 
   /**
-   * Create a simple reverb using convolution
+   * Create a simple reverb using convolution - matching original
    */
   async createReverb() {
-    const duration = 1.5; // seconds
-    const decay = 1.0;
+    const duration = 3; // seconds
+    const decay = 2;
     const sampleRate = this.audioCtx.sampleRate;
     const length = sampleRate * duration;
     const impulse = this.audioCtx.createBuffer(2, length, sampleRate);
@@ -97,7 +100,6 @@ export const AudioEngine = {
     for (let channel = 0; channel < 2; channel++) {
       const channelData = impulse.getChannelData(channel);
       for (let i = 0; i < length; i++) {
-        // Random noise that decays over time
         channelData[i] =
           (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
       }
@@ -112,6 +114,16 @@ export const AudioEngine = {
    * Apply settings from a patch
    */
   applyPatch(patch) {
+    if (!patch || !patch.audio) {
+      console.error('Invalid patch data');
+      return;
+    }
+
+    // Check if we need to rebuild oscillators
+    const needsRebuild =
+      this.currentSettings.oscillatorType !== patch.audio.oscillatorType ||
+      this.currentSettings.overtoneCount !== patch.audio.overtoneCount;
+
     // Merge patch audio settings with defaults
     this.currentSettings = {
       ...AppConfig.audioDefaults,
@@ -138,13 +150,6 @@ export const AudioEngine = {
       0.02
     );
 
-    // Update reverb
-    this.nodes.reverbGain.gain.setTargetAtTime(
-      this.currentSettings.reverbMix,
-      now,
-      0.1
-    );
-
     // Update LFO base frequency
     this.nodes.lfo.frequency.setTargetAtTime(
       this.currentSettings.lfoMinFreq,
@@ -152,25 +157,41 @@ export const AudioEngine = {
       0.01
     );
 
-    // build oscillators if type or count changed
-    this.buildOscillators();
+    // Only rebuild oscillators if necessary
+    if (needsRebuild) {
+      this.buildOscillators();
+    }
+
+    console.log(`Applied patch: ${patch.name}`);
   },
 
   /**
-   * build oscillators based on current settings
+   * Build oscillators based on current settings
    */
   buildOscillators() {
     if (!this.audioCtx) return;
 
+    // Store current playing state
+    const wasPlaying = this.isPlaying;
+
     // Clean up old oscillators
     this.oscillators.forEach((osc) => {
-      osc.oscillator.stop();
-      osc.oscillator.disconnect();
-      osc.gain.disconnect();
-      if (this.nodes.lfoGain) {
-        try {
-          this.nodes.lfoGain.disconnect(osc.oscillator.frequency);
-        } catch (e) {}
+      try {
+        // Disconnect LFO first
+        if (this.nodes.lfoGain) {
+          try {
+            this.nodes.lfoGain.disconnect(osc.oscillator.frequency);
+          } catch (e) {
+            // Ignore if already disconnected
+          }
+        }
+
+        // Then stop and disconnect oscillator
+        osc.oscillator.stop();
+        osc.oscillator.disconnect();
+        osc.gain.disconnect();
+      } catch (e) {
+        console.warn('Error cleaning up oscillator:', e);
       }
     });
     this.oscillators = [];
@@ -195,6 +216,10 @@ export const AudioEngine = {
 
       this.oscillators.push({ oscillator: osc, gain });
     }
+
+    console.log(
+      `Built ${numOscillators} oscillators of type ${this.currentSettings.oscillatorType}`
+    );
   },
 
   /**
@@ -207,27 +232,25 @@ export const AudioEngine = {
 
     // Default values when hands not detected
     let pitchControl = 0.5;
-    let reverbControl = this.currentSettings.reverbMix;
+    let reverbControl = 0.5;
     let vibratoControl = 0.5;
     let overtoneControl = 0.5;
 
     if (leftHandData) {
-      // Left hand: Y controls pitch (inverted - higher hand = higher pitch)
-      // X controls reverb amount
+      // Left hand: Y controls pitch, X controls reverb
       pitchControl = leftHandData.y;
       reverbControl = leftHandData.x;
     }
 
     if (rightHandData) {
-      // Right hand: Y controls overtone intensity (inverted)
-      // X controls vibrato rate/depth (inverted - left = less, right = more)
+      // Right hand: Y controls overtone intensity, X controls vibrato
       overtoneControl = rightHandData.y;
       vibratoControl = rightHandData.x;
     }
 
     // Calculate base frequency from hand position
     const octaveRange =
-      AppConfig.visuals.endOctave - AppConfig.visuals.startOctave;
+      AppConfig.visuals.endOctave - AppConfig.visuals.startOctave + 1;
     const semitones = (1 - pitchControl) * (octaveRange * 12);
     let frequency =
       this.currentSettings.baseFrequency * Math.pow(2, semitones / 12);
@@ -250,43 +273,32 @@ export const AudioEngine = {
     // Update reverb mix (0 to 0.7 range)
     this.nodes.reverbGain.gain.setTargetAtTime(reverbControl * 0.7, now, 0.1);
 
-    // Update vibrato (LFO)
+    // Update vibrato (LFO) - inverted X control
+    const vibratoAmount = 1 - vibratoControl;
     const lfoRate =
       this.currentSettings.lfoMinFreq +
-      (1 - vibratoControl) *
-        (this.currentSettings.lfoMaxFreqMultiplier - 1) *
-        this.currentSettings.lfoMinFreq;
-    const lfoDepth =
-      (1 - vibratoControl) * this.currentSettings.lfoMaxDepthMultiplier;
+      vibratoAmount * this.currentSettings.lfoMaxFreqMultiplier;
+    const lfoDepth = vibratoAmount * this.currentSettings.lfoMaxDepthMultiplier;
 
     this.nodes.lfo.frequency.setTargetAtTime(lfoRate, now, 0.1);
     this.nodes.lfoGain.gain.setTargetAtTime(lfoDepth, now, 0.1);
 
     // Update oscillators (fundamental + overtones)
     const overtoneIntensity = 1 - overtoneControl; // Higher hand = more overtones
+    const activeOvertones =
+      1 +
+      Math.floor(overtoneIntensity * (this.currentSettings.overtoneCount - 1));
 
     this.oscillators.forEach((osc, i) => {
       // Harmonic series: fundamental, 2x, 3x, 4x, etc.
       const harmonic = i + 1;
-      osc.oscillator.frequency.setTargetAtTime(
-        frequency * harmonic,
-        now,
-        0.015
-      );
+      osc.oscillator.frequency.setTargetAtTime(frequency * harmonic, now, 0.03);
 
       // Calculate gain for this harmonic
-      let gain = 0;
-      if (i === 0) {
-        // Fundamental always plays
-        gain = 0.5;
-      } else {
-        // Higher harmonics fade based on hand position and harmonic number
-        const falloff = 1 / Math.sqrt(harmonic);
-        gain = 0.5 * falloff * Math.pow(overtoneIntensity, 0.5 + i * 0.1);
-        gain = Math.min(gain, 0.5 / this.oscillators.length); // Prevent clipping
-      }
+      const active = i < activeOvertones;
+      const gainValue = active ? 0.3 / Math.sqrt(harmonic) : 0; // Simple harmonic falloff
 
-      osc.gain.gain.setTargetAtTime(gain, now, 0.01);
+      osc.gain.gain.setTargetAtTime(gainValue, now, 0.01);
     });
   },
 

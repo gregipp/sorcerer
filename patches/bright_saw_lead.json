@@ -16,17 +16,25 @@
   },
   "octaveOffset": 0,
   "arpeggiator": {
-    "interval": 150,
+    "interval": 200,
     "pattern": [
+      -12,
+      -8,
+      -5,
       0,
       4,
       7,
-      12
+      12,
+      7,
+      4,
+      0,
+      -5,
+      -8
     ]
   },
   "visuals": {
     "rayDensityMultiplier": 20,
-    "raySpeedMultiplier": 20,
+    "raySpeedMultiplier": 2,
     "rayColor": "rgba(100, 220, 100, 0.8)",
     "crosshairBaseSize": 180
   }

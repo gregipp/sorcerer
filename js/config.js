@@ -29,9 +29,9 @@ export const AppConfig = {
     endOctave: 4,
 
     // Crosshair sizing
-    crosshairBaseSize: 150, // Base size in pixels
-    crosshairFontSize: 18, // Text label font size
-    pitchMarkerFontSize: 12, // Note marker font size
+    crosshairBaseSize: 200, // Base size in pixels
+    crosshairFontSize: 20, // Text label font size
+    pitchMarkerFontSize: 14, // Note marker font size
 
     // Ray effects
     rayDensityMultiplier: 1.0, // Ray spawn rate multiplier
@@ -44,6 +44,12 @@ export const AppConfig = {
     gestureCooldown: 500, // ms between patch switch gestures
     noHandsMessageDelay: 1000, // ms before showing "no hands" message
     messageFadeInDuration: 1.0, // seconds for message fade-in
+  },
+
+  // Arpeggiator settings
+  arpeggiator: {
+    interval: 200, // ms between arp steps
+    pattern: [-12, -8, -5, 0, 4, 7, 12, 7, 4, 0, -5, -8], // semitones from root
   },
 
   // Default patch files to load on startup
