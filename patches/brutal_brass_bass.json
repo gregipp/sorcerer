@@ -1,0 +1,25 @@
+{
+  "patchSchemaVersion": "1.0",
+  "name": "Brutal Brass Bass",
+  "description": "A heavy sawtooth bass sound with a brassy character and resonant filter.",
+  "audio": {
+    "oscillatorType": "sawtooth",
+    "overtoneCount": 8,
+    "attackTime": 0.05,
+    "releaseTime": 0.4,
+    "lfoMinFreq": 1.0,
+    "lfoMaxFreqMultiplier": 1.5,
+    "lfoMaxDepthMultiplier": 5,
+    "filterCutoff": 800,
+    "filterQ": 4.5,
+    "reverbMix": 0.15
+  },
+  "octaveOffset": -2,
+  "arpeggiator": null,
+  "visuals": {
+    "rayDensityMultiplier": 10,
+    "raySpeedMultiplier": 10,
+    "rayColor": "rgba(255, 100, 220, 0.8)",
+    "crosshairBaseSize": 180
+  }
+}

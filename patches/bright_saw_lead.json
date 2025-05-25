@@ -1,0 +1,33 @@
+{
+  "patchSchemaVersion": "1.0",
+  "name": "Bright Saw Lead",
+  "description": "A sharp and bright sawtooth lead sound, good for melodies.",
+  "audio": {
+    "oscillatorType": "sawtooth",
+    "overtoneCount": 10,
+    "attackTime": 0.01,
+    "releaseTime": 0.4,
+    "lfoMinFreq": 3.0,
+    "lfoMaxFreqMultiplier": 3,
+    "lfoMaxDepthMultiplier": 15,
+    "filterCutoff": 15000,
+    "filterQ": 1.2,
+    "reverbMix": 0.25
+  },
+  "octaveOffset": 0,
+  "arpeggiator": {
+    "interval": 150,
+    "pattern": [
+      0,
+      4,
+      7,
+      12
+    ]
+  },
+  "visuals": {
+    "rayDensityMultiplier": 20,
+    "raySpeedMultiplier": 20,
+    "rayColor": "rgba(100, 220, 100, 0.8)",
+    "crosshairBaseSize": 180
+  }
+}
