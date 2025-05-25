@@ -1,67 +1,55 @@
-// js/config.js
-
-/**
- * Global configuration for the SORCERER application.
- * These settings provide defaults for audio synthesis and visual rendering.
- * Specific instrument patches can override parts of this configuration.
- */
+// config.js - Global configuration for SORCERER
 export const AppConfig = {
-  // Audio Engine Defaults
+  // Audio synthesis defaults
   audioDefaults: {
-    oscillatorType: 'sine', // Default waveform: 'sine', 'square', 'sawtooth', 'triangle'
-    attackTime: 0.5, // Seconds for envelope attack
-    releaseTime: 0.8, // Seconds for envelope release
-    overtoneCount: 7, // Number of overtones/partials for additive synthesis
-    baseFrequency: 261.63, // C4 - Fundamental frequency reference
-    lfoMinFreq: 1, // Minimum LFO frequency (Hz) for vibrato/modulation
-    lfoMaxFreqMultiplier: 4, // Multiplier for LFO freq range (hand-controlled)
-    lfoMaxDepthMultiplier: 20, // Multiplier for LFO depth range (hand-controlled)
-    filterCutoff: 20000, // Default filter cutoff (Hz), high to be effectively off
-    filterQ: 1, // Default filter Q (resonance)
-    reverbMix: 0.3, // Default reverb mix (0 to 1)
-    octaveOffset: 0, // Default global octave offset
+    baseFrequency: 261.63, // C4 reference pitch
+    oscillatorType: 'sine', // sine, square, sawtooth, triangle
+    overtoneCount: 7, // Number of harmonics for additive synthesis
+    octaveOffset: 0, // Global pitch shift in octaves
+
+    // Envelope
+    attackTime: 0.5, // Seconds to reach full volume
+    releaseTime: 0.8, // Seconds to fade to silence
+
+    // Filter
+    filterCutoff: 20000, // Hz - high value = effectively bypassed
+    filterQ: 1, // Resonance/emphasis at cutoff
+
+    // Effects
+    reverbMix: 0.3, // 0-1 reverb wet/dry mix
+    lfoMinFreq: 1, // Hz - base vibrato rate
+    lfoMaxFreqMultiplier: 4, // Maximum LFO rate multiplier
+    lfoMaxDepthMultiplier: 20, // Maximum vibrato depth
   },
 
-  // Arpeggiator Defaults (can be overridden by patches)
-  arpDefaults: {
-    interval: 200, // Milliseconds for arpeggiator step
-    pattern: [-12, -8, -5, 0, 4, 7, 12, 7, 4, 0, -5, -8], // Semitones from root
-  },
-
-  // Visual Configuration
+  // Visual rendering
   visuals: {
-    crosshairBaseSize: 150,
-    crosshairFontSize: 18,
-    pitchMarkerFontSize: 12,
+    // Pitch display range
     startOctave: 2,
     endOctave: 4,
-    rayDensityMultiplier: 1.0, // Default density
-    raySpeedMultiplier: 1.0, // Default speed
+
+    // Crosshair sizing
+    crosshairBaseSize: 150, // Base size in pixels
+    crosshairFontSize: 18, // Text label font size
+    pitchMarkerFontSize: 12, // Note marker font size
+
+    // Ray effects
+    rayDensityMultiplier: 1.0, // Ray spawn rate multiplier
+    raySpeedMultiplier: 1.0, // Ray movement speed multiplier
     rayColor: 'rgba(255, 255, 255, 0.7)', // Default ray color
   },
-  // Hand Input & Gesture Configuration
-  handInput: {
-    gestureCooldown: 500, // Milliseconds cooldown for patch switch gesture
-  },
 
-  // UI & Interaction
+  // User interface
   ui: {
-    noHandsMessageDelay: 1000, // Milliseconds before showing "no hands" message
-    messageFadeInDuration: 1.0, // Seconds for the "no hands" message to fade in
+    gestureCooldown: 500, // ms between patch switch gestures
+    noHandsMessageDelay: 1000, // ms before showing "no hands" message
+    messageFadeInDuration: 1.0, // seconds for message fade-in
   },
 
-  // Default patch file names to load on startup
-  // These should correspond to files in the 'patches/' directory
+  // Default patch files to load on startup
   defaultPatches: [
     'classic_theremin.json',
     'bright_saw_lead.json',
     'brutal_brass_bass.json',
   ],
-
-  debug: {
-    enabled: false, // Master toggle for debug mode
-    showFPS: false, // Show framerate on screen
-    logPerformance: false, // Log slow frames to console
-    slowFrameThreshold: 16.6, // Threshold for slow frame warnings (ms)
-  },
 };

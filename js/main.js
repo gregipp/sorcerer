@@ -1,626 +1,290 @@
-// js/main.js
+// main.js - Main application controller for SORCERER
 import { AppConfig } from './config.js';
 import { AudioEngine } from './audio_engine.js';
 import { HandInput } from './hand_input.js';
 import { Renderer } from './renderer.js';
 import { PatchManager } from './patch_manager.js';
-import { VisualEffectsManager } from './visual_effects_manager.js';
 
 /**
- * Main application controller for SORCERER.
- * Initializes and coordinates all modules (AudioEngine, HandInput, Renderer, PatchManager).
+ * Main application controller.
+ * Coordinates all modules and manages the application lifecycle.
  */
 const App = {
-  isInitialized: false,
-  currentPatch: null,
-  patchKeys: [], // To store the keys/names of loaded patches for cycling
+  initialized: false,
 
-  // For "No Hands Detected" message logic
-  noHandsDetectedTimestamp: null,
-  isNoHandsMessageVisible: false,
-  noHandsMessageCurrentOpacity: 0,
-  lastFrameTimeForDelta: 0,
+  // State management
+  noHandsTimer: null,
+  noHandsOpacity: 0,
+  lastFrameTime: 0,
+  animationFrameId: null,
 
-  domElements: {
-    videoElement: null,
-    canvasElement: null,
+  // DOM element cache
+  elements: {
+    video: null,
+    canvas: null,
     logoContainer: null,
-    subtitle: null,
     backgroundImage: null,
     patchPanel: null,
-    patchButtons: {
-      thereminPatch: null,
-      synthPatch: null,
-      bassSynthPatch: null,
-    },
-    llmJsonTextarea: null,
-    loadLlmPatchButton: null,
-    llmPatchInputContainer: null, // Added this to easily show/hide
-  },
-
-  eventHandlers: {
-    resize: null,
-    startExperience: null,
-    patchButtons: {},
-    loadLlmPatch: null,
+    patchButtons: [],
+    llmTextarea: null,
+    llmButton: null,
   },
 
   /**
-   * Initializes the entire application.
-   * This is typically called once after the DOM is loaded.
+   * Initialize the application on page load
    */
   async init() {
-    // Cache all core DOM elements at initialization
-    this.domElements.videoElement = document.getElementById('video');
-    this.domElements.canvasElement = document.getElementById('canvas');
-    this.domElements.logoContainer = document.querySelector('.logo-container');
-    this.domElements.subtitle = document.querySelector('.subtitle');
-    this.domElements.backgroundImage =
-      document.querySelector('.background-image');
-    this.domElements.patchPanel = document.querySelector('.patch-panel');
-    this.domElements.llmJsonTextarea = document.getElementById('llmPatchJson');
-    this.domElements.loadLlmPatchButton =
-      document.getElementById('loadLlmPatch');
-    this.domElements.llmPatchInputContainer = document.querySelector(
-      '.llm-patch-input-container'
+    // Cache DOM elements
+    this.elements.video = document.getElementById('video');
+    this.elements.canvas = document.getElementById('canvas');
+    this.elements.logoContainer = document.querySelector('.logo-container');
+    this.elements.backgroundImage = document.querySelector('.background-image');
+    this.elements.patchPanel = document.querySelector('.patch-panel');
+    this.elements.patchButtons = Array.from(
+      document.querySelectorAll('.patch-button')
     );
+    this.elements.llmTextarea = document.getElementById('llmPatchJson');
+    this.elements.llmButton = document.getElementById('loadLlmPatch');
 
-    // Cache patch buttons
-    this.domElements.patchButtons.thereminPatch =
-      document.getElementById('thereminPatch');
-    this.domElements.patchButtons.synthPatch =
-      document.getElementById('synthPatch');
-    this.domElements.patchButtons.bassSynthPatch =
-      document.getElementById('bassSynthPatch');
-
-    // Create and store bound event handlers
-    this.eventHandlers.resize = () => Renderer.resize();
-    this.eventHandlers.startExperience = this.startExperience.bind(this);
-    this.eventHandlers.loadLlmPatch = this.handleLlmPatchLoad.bind(this);
-
-    // Set up the main click listener with the stored handler
-    document.body.addEventListener(
-      'click',
-      this.eventHandlers.startExperience,
-      {
-        once: true,
-      }
-    );
-
-    window.addEventListener('resize', this.eventHandlers.resize);
-
-    if (!this.domElements.videoElement || !this.domElements.canvasElement) {
-      console.error('App: Critical HTML elements (video or canvas) not found.');
+    // Check critical elements
+    if (!this.elements.video || !this.elements.canvas) {
+      console.error('Critical elements missing from page');
       return;
     }
 
-    // Initialize Renderer with cached elements
-    Renderer.init(
-      this.domElements.canvasElement,
-      this.domElements.videoElement
-    );
+    // Initialize renderer
+    Renderer.init(this.elements.canvas, this.elements.video);
 
-    // Initialize VisualEffectsManager
-    VisualEffectsManager.init();
+    // Add resize handler
+    window.addEventListener('resize', () => Renderer.resize());
 
-    // Load all patches
+    // Load patches
     try {
       await PatchManager.loadDefaultPatches();
-      this.patchKeys = PatchManager.getPatchNames();
-      console.log(
-        'App: Loaded patch keys:',
-        this.patchKeys,
-        `(Count: ${this.patchKeys.length})`
-      ); // Diagnostic log
+      const firstPatch = PatchManager.getCurrentPatch();
 
-      if (this.patchKeys.length > 0) {
-        this.currentPatch = PatchManager.getFirstPatch();
-        if (!this.currentPatch) {
-          console.error(
-            'App: Could not get a valid first patch, though patch keys exist.'
-          );
-          this.currentPatch = this._createFallbackPatch();
-        }
-      } else {
-        console.warn(
-          'App: No patches loaded. Application might not function correctly. Using fallback.'
-        );
-        this.currentPatch = this._createFallbackPatch();
-        this.patchKeys = [this.currentPatch.name]; // Ensure patchKeys has at least the fallback
-      }
-      // Apply initial patch settings to AudioEngine
-      AudioEngine.applyPatch(this.currentPatch);
-    } catch (error) {
-      console.error('App: Error loading patches:', error);
-      this.currentPatch = this._createFallbackPatch();
-      this.patchKeys = [this.currentPatch.name];
-      AudioEngine.applyPatch(this.currentPatch);
-    }
-
-    // Initial render
-    Renderer.resize();
-    Renderer.updateConfigs(
-      VisualEffectsManager.getEffectiveVisuals(this.currentPatch),
-      this.currentPatch.audio || AppConfig.audioDefaults
-    );
-
-    this.animationFrameLoop();
-    console.log(
-      'App: Initialized. Waiting for user interaction to start audio and hand tracking.'
-    );
-  },
-
-  /**
-   * Creates a very basic fallback patch if no patches can be loaded.
-   */
-  _createFallbackPatch() {
-    console.warn('App: Creating a minimal fallback patch.');
-    return {
-      patchSchemaVersion: '1.0',
-      name: 'Fallback Sine',
-      description: 'A basic sine wave sound.',
-      audio: { ...AppConfig.audioDefaults },
-      visuals: { ...VisualEffectsManager.getBaseEnhancedVisuals() },
-      octaveOffset: 0,
-      arpeggiator: null,
-    };
-  },
-
-  /**
-   * Starts the main audio-visual experience after user interaction.
-   */
-  async startExperience() {
-    if (this.isInitialized) return;
-    this.isInitialized = true;
-    console.log('App: User interaction detected. Starting full experience...');
-
-    this.animateLogoAndBG();
-
-    try {
-      await AudioEngine.init();
-      AudioEngine.applyPatch(this.currentPatch);
-      console.log('App: AudioEngine started and initial patch applied.');
-
-      await HandInput.init(
-        this.domElements.videoElement,
-        this.onHandResults.bind(this)
+      // Update renderer with initial patch visuals
+      Renderer.updateConfigs(
+        firstPatch.visuals || {},
+        firstPatch.audio || AppConfig.audioDefaults
       );
-      console.log('App: HandInput started.');
-
-      this.setupPatchUIListeners();
     } catch (error) {
-      console.error('App: Error starting experience:', error);
-      this.isInitialized = false;
+      console.error('Failed to load patches:', error);
       alert(
-        'Could not initialize audio or camera. Please check permissions and refresh.'
+        'Failed to load instrument patches. Please check your installation.'
       );
-    }
-
-    this.lastFrameTimeForDelta = performance.now();
-    if (!this._animationFrameId) {
-      this.animationFrameLoop();
-    }
-  },
-
-  /**
-   * Sets up event listeners for the patch selection UI.
-   */
-  setupPatchUIListeners() {
-    const patchButtonsInfo = [
-      {
-        id: 'thereminPatch',
-        defaultKeyHint: PatchManager.defaultPatchNames[0]
-          ?.replace('patches/', '')
-          .replace('.json', ''),
-      },
-      {
-        id: 'synthPatch',
-        defaultKeyHint: PatchManager.defaultPatchNames[1]
-          ?.replace('patches/', '')
-          .replace('.json', ''),
-      },
-      {
-        id: 'bassSynthPatch',
-        defaultKeyHint: PatchManager.defaultPatchNames[2]
-          ?.replace('patches/', '')
-          .replace('.json', ''),
-      },
-    ];
-
-    patchButtonsInfo.forEach((btnInfo) => {
-      const button = this.domElements.patchButtons[btnInfo.id];
-      if (!button) {
-        console.warn(`App: Button with ID "${btnInfo.id}" not found.`);
-        return;
-      }
-
-      let patchKeyForButton = this.patchKeys.find((pk) => {
-        const patch = PatchManager.getPatch(pk);
-        const hint = btnInfo.defaultKeyHint?.toLowerCase();
-        return (
-          patch &&
-          hint &&
-          (patch.name.toLowerCase().includes(hint) ||
-            pk.toLowerCase().includes(hint))
-        );
-      });
-
-      if (
-        !patchKeyForButton &&
-        this.patchKeys.length >= patchButtonsInfo.indexOf(btnInfo) + 1
-      ) {
-        patchKeyForButton = this.patchKeys[patchButtonsInfo.indexOf(btnInfo)];
-      }
-
-      if (
-        button &&
-        patchKeyForButton &&
-        PatchManager.getPatch(patchKeyForButton)
-      ) {
-        // Store the bound handler and add the listener
-        this.eventHandlers.patchButtons[btnInfo.id] = () =>
-          this.selectPatch(patchKeyForButton);
-        button.addEventListener(
-          'click',
-          this.eventHandlers.patchButtons[btnInfo.id]
-        );
-      } else if (button) {
-        button.disabled = true;
-        button.title = 'Patch not loaded or key mismatch';
-        console.warn(
-          `App: Button ${btnInfo.id} (hint: ${
-            btnInfo.defaultKeyHint
-          }) - corresponding patch not reliably found or loaded. PatchKey tried: ${patchKeyForButton}. Available keys: ${this.patchKeys.join(
-            ', '
-          )}`
-        );
-      }
-    });
-
-    // Set up LLM patch input handling if present - FIXED EVENT LISTENER SETUP
-    if (
-      this.domElements.loadLlmPatchButton &&
-      this.domElements.llmJsonTextarea
-    ) {
-      this.domElements.loadLlmPatchButton.addEventListener(
-        'click',
-        this.eventHandlers.loadLlmPatch
-      );
-      console.log('App: LLM patch load button event listener attached');
-    } else {
-      console.warn('App: LLM patch button or textarea not found');
-    }
-
-    this.updateActivePatchButton();
-    console.log('App: Patch UI listeners set up.');
-  },
-
-  /**
-   * Handles loading a patch from the LLM JSON textarea.
-   */
-  handleLlmPatchLoad() {
-    // FIXED: Use domElements consistently
-    if (!this.domElements.llmJsonTextarea) {
-      console.error('App: LLM JSON textarea not found');
       return;
     }
 
-    const jsonString = this.domElements.llmJsonTextarea.value;
-    console.log(
-      'App: Attempting to load LLM patch JSON:',
-      jsonString.substring(0, 50) + '...'
-    );
+    // Set up one-time click to start
+    document.body.addEventListener('click', () => this.start(), { once: true });
+
+    // Start render loop
+    this.animate();
+
+    console.log('App initialized. Click to start audio and camera.');
+  },
+
+  /**
+   * Start the full experience after user interaction
+   */
+  async start() {
+    if (this.initialized) return;
+    this.initialized = true;
+
+    console.log('Starting SORCERER experience...');
+
+    // Animate UI
+    this.elements.logoContainer.classList.add('moved');
+    this.elements.backgroundImage.classList.add('hidden');
+    setTimeout(() => {
+      this.elements.patchPanel.classList.add('visible');
+      const llmContainer = document.querySelector('.llm-patch-input-container');
+      if (llmContainer) llmContainer.style.display = 'flex';
+    }, 600);
 
     try {
-      const patchObject = JSON.parse(jsonString);
-      const patchName = patchObject.name || `Custom LLM Patch ${Date.now()}`;
+      // Initialize audio
+      await AudioEngine.init();
+      const currentPatch = PatchManager.getCurrentPatch();
+      AudioEngine.applyPatch(currentPatch);
 
-      if (PatchManager.addPatch(patchObject, patchName)) {
-        this.patchKeys = PatchManager.getPatchNames();
-        this.selectPatch(patchName);
-        this.domElements.llmJsonTextarea.value = '';
-        alert(`Custom patch "${patchName}" loaded successfully!`);
-        console.log('App: Successfully loaded custom patch:', patchName);
+      // Initialize hand tracking
+      await HandInput.init(this.elements.video, (raw, processed) =>
+        this.onHandsUpdate(processed)
+      );
+
+      // Set up UI event handlers
+      this.setupUIHandlers();
+    } catch (error) {
+      console.error('Failed to start:', error);
+      this.initialized = false;
+
+      if (error.message.includes('camera')) {
+        alert(
+          'Camera access denied. Please allow camera access and refresh the page.'
+        );
       } else {
         alert(
-          'Failed to add custom patch. Invalid JSON structure or data (check console).'
-        );
-        console.error(
-          'App: Failed to add patch. PatchManager validation rejected it.'
+          'Failed to initialize. Please check your browser supports WebRTC and Web Audio.'
         );
       }
-    } catch (error) {
-      console.error('App: Error parsing LLM JSON patch:', error);
-      alert('Invalid JSON format. Please check the patch data.');
     }
   },
 
   /**
-   * Callback function for when HandInput processes new hand tracking results.
-   * @param {object} rawResults - Raw results from MediaPipe.
-   * @param {object} processedHands - Processed hand data { left, right, activeHandsCount }.
+   * Set up UI event handlers for patch selection
    */
-  onHandResults(rawResults, processedHands) {
-    if (!this.isInitialized || !AudioEngine.audioCtx) return;
-
-    const currentTime = performance.now();
-    let deltaTime = this.lastFrameTimeForDelta
-      ? (currentTime - this.lastFrameTimeForDelta) / 1000.0
-      : 1 / 60.0;
-    if (deltaTime <= 0) deltaTime = 1 / 60.0;
-    this.lastFrameTimeForDelta = currentTime;
-
-    if (processedHands.left && processedHands.left.cyclePatchGesture) {
-      this.cycleNextPatch();
-    }
-
-    if (processedHands.right) {
-      AudioEngine.setArpeggiatorState(processedHands.right.isFist);
-    } else {
-      AudioEngine.setArpeggiatorState(false);
-    }
-
-    const handsArePresent = processedHands.activeHandsCount > 0;
-    AudioEngine.setEnvelopeState(handsArePresent);
-
-    if (handsArePresent) {
-      AudioEngine.update(processedHands.left, processedHands.right);
-    }
-
-    const HAND_ABSENCE_THRESHOLD_MS = AppConfig.ui.noHandsMessageDelay;
-    const MESSAGE_FADE_IN_DURATION_SECONDS = AppConfig.ui.messageFadeInDuration;
-    const opacityIncrementPerFrame =
-      MESSAGE_FADE_IN_DURATION_SECONDS > 0
-        ? (1.0 / MESSAGE_FADE_IN_DURATION_SECONDS) * deltaTime
-        : 1.0;
-
-    if (!handsArePresent) {
-      if (this.noHandsDetectedTimestamp === null) {
-        this.noHandsDetectedTimestamp = currentTime;
-      }
-      if (
-        currentTime - this.noHandsDetectedTimestamp >=
-        HAND_ABSENCE_THRESHOLD_MS
-      ) {
-        this.isNoHandsMessageVisible = true;
-        if (this.noHandsMessageCurrentOpacity < 1) {
-          this.noHandsMessageCurrentOpacity = Math.min(
-            1,
-            this.noHandsMessageCurrentOpacity + opacityIncrementPerFrame
+  setupUIHandlers() {
+    // Patch buttons
+    this.elements.patchButtons.forEach((button, index) => {
+      button.addEventListener('click', () => {
+        const patch = PatchManager.selectPatch(index);
+        if (patch) {
+          AudioEngine.applyPatch(patch);
+          Renderer.updateConfigs(
+            patch.visuals || {},
+            patch.audio || AppConfig.audioDefaults
           );
+          this.updatePatchButtons(index);
         }
-      } else {
-        this.isNoHandsMessageVisible = false;
-        this.noHandsMessageCurrentOpacity = 0;
-      }
-    } else {
-      this.noHandsDetectedTimestamp = null;
-      this.isNoHandsMessageVisible = false;
-      this.noHandsMessageCurrentOpacity = 0;
-    }
-  },
-
-  /**
-   * Selects and applies a new instrument patch.
-   * @param {string} patchKey - The key/name of the patch to select.
-   */
-  selectPatch(patchKey) {
-    const newPatch = PatchManager.getPatch(patchKey);
-    if (newPatch) {
-      this.currentPatch = newPatch;
-      AudioEngine.applyPatch(this.currentPatch);
-
-      // Get the effective visuals for this patch using VisualEffectsManager
-      const visualConfig = VisualEffectsManager.getEffectiveVisuals(newPatch);
-
-      // Update the renderer with new configs
-      Renderer.updateConfigs(
-        visualConfig,
-        newPatch.audio || AppConfig.audioDefaults
-      );
-
-      this.updateActivePatchButton();
-      console.log(
-        `App: Selected patch "${newPatch.name}" (Key: "${patchKey}").`
-      );
-    } else {
-      console.warn(
-        `App: Patch with key "${patchKey}" not found when trying to select.`
-      );
-    }
-  },
-
-  /**
-   * Cycles to the next available patch.
-   */
-  cycleNextPatch() {
-    if (!this.patchKeys || this.patchKeys.length === 0) {
-      console.warn('App: No patch keys available to cycle.');
-      return;
-    }
-
-    let currentPatchKey = this.currentPatch
-      ? this.patchKeys.find(
-          (key) => PatchManager.getPatch(key)?.name === this.currentPatch.name
-        ) || this.patchKeys[0]
-      : this.patchKeys[0];
-    let currentIndex = this.patchKeys.indexOf(currentPatchKey);
-
-    if (currentIndex === -1) {
-      console.warn(
-        'App: Current patch key not found in patchKeys array, defaulting to first patch for cycling.'
-      );
-      currentIndex = 0;
-    }
-
-    const nextIndex = (currentIndex + 1) % this.patchKeys.length;
-    this.selectPatch(this.patchKeys[nextIndex]);
-  },
-
-  /**
-   * Updates the UI to show which patch button is active.
-   */
-  updateActivePatchButton() {
-    // Simple direct mapping of patch names to button keys
-    const patchButtonMap = {
-      'Classic Theremin': 'thereminPatch',
-      'Bright Saw Lead': 'synthPatch',
-      'Brutal Brass Bass': 'bassSynthPatch',
-    };
-
-    // Clear all active states
-    Object.values(this.domElements.patchButtons).forEach((btn) => {
-      if (btn) btn.classList.remove('active');
+      });
     });
 
-    // Set active state on the matching button
-    if (this.currentPatch && this.currentPatch.name) {
-      const buttonKey = patchButtonMap[this.currentPatch.name];
-      if (buttonKey && this.domElements.patchButtons[buttonKey]) {
-        this.domElements.patchButtons[buttonKey].classList.add('active');
-      }
-    }
-  },
+    // Update initial active button
+    this.updatePatchButtons(0);
 
-  /**
-   * Main animation loop using requestAnimationFrame.
-   */
-  _animationFrameId: null,
+    // LLM patch loader
+    if (this.elements.llmButton && this.elements.llmTextarea) {
+      this.elements.llmButton.addEventListener('click', () => {
+        try {
+          const patchData = JSON.parse(this.elements.llmTextarea.value);
 
-  animationFrameLoop() {
-    const frameStart = performance.now();
+          if (PatchManager.addPatch(patchData)) {
+            // Select the newly added patch
+            const newIndex = PatchManager.getAllPatches().length - 1;
+            const patch = PatchManager.selectPatch(newIndex);
 
-    if (this.isInitialized && AudioEngine.audioCtx) {
-      Renderer.drawFrame(
-        null,
-        HandInput.handPositions || {
-          left: null,
-          right: null,
-          activeHandsCount: 0,
-        },
-        this.isNoHandsMessageVisible,
-        this.noHandsMessageCurrentOpacity,
-        this.currentPatch
-      );
-    } else if (Renderer.ctx) {
-      Renderer.ctx.clearRect(
-        0,
-        0,
-        Renderer.canvasElement.width,
-        Renderer.canvasElement.height
-      );
-      if (
-        Renderer.canvasElement.width > 0 &&
-        Renderer.canvasElement.height > 0
-      ) {
-        Renderer._drawPitchMarkers();
-      }
-    }
+            AudioEngine.applyPatch(patch);
+            Renderer.updateConfigs(
+              patch.visuals || {},
+              patch.audio || AppConfig.audioDefaults
+            );
 
-    // Performance monitoring
-    if (AppConfig.debug.enabled) {
-      const frameTime = performance.now() - frameStart;
-
-      if (AppConfig.debug.showFPS) {
-        Renderer.drawDebugInfo(1000 / frameTime, frameTime);
-      }
-
-      if (
-        AppConfig.debug.logPerformance &&
-        frameTime > AppConfig.debug.slowFrameThreshold
-      ) {
-        console.warn(`Slow frame: ${frameTime.toFixed(2)}ms`);
-      }
-    }
-
-    this._animationFrameId = requestAnimationFrame(
-      this.animationFrameLoop.bind(this)
-    );
-  },
-
-  /**
-   * Stops the animation loop.
-   */
-  stopAnimationFrameLoop() {
-    if (this._animationFrameId) {
-      cancelAnimationFrame(this._animationFrameId);
-      this._animationFrameId = null;
-    }
-  },
-
-  animateLogoAndBG() {
-    if (this.domElements.logoContainer) {
-      this.domElements.logoContainer.classList.add('moved');
-    }
-    if (this.domElements.backgroundImage) {
-      this.domElements.backgroundImage.classList.add('hidden');
-    }
-
-    // Make patch panel slide in after a short delay
-    setTimeout(() => {
-      if (this.domElements.patchPanel) {
-        this.domElements.patchPanel.classList.add('visible');
-      }
-      // FIXED: Use cached DOM element instead of querying again
-      if (this.domElements.llmPatchInputContainer) {
-        this.domElements.llmPatchInputContainer.style.display = 'flex';
-        console.log('App: Showing LLM patch input container');
-      } else {
-        console.warn('App: LLM patch input container not found in DOM cache');
-      }
-    }, 600);
-  },
-
-  cleanup() {
-    // Remove window events
-    if (this.eventHandlers.resize) {
-      window.removeEventListener('resize', this.eventHandlers.resize);
-    }
-
-    // Remove patch button listeners
-    Object.entries(this.eventHandlers.patchButtons).forEach(
-      ([buttonId, handler]) => {
-        const button = this.domElements.patchButtons[buttonId];
-        if (button && handler) {
-          button.removeEventListener('click', handler);
+            this.elements.llmTextarea.value = '';
+            alert(`Loaded custom patch: ${patch.name}`);
+          } else {
+            alert('Invalid patch format. Check console for details.');
+          }
+        } catch (error) {
+          console.error('Failed to parse patch JSON:', error);
+          alert('Invalid JSON. Please check your patch data.');
         }
-      }
-    );
+      });
+    }
+  },
 
-    // Remove LLM patch load listener
+  /**
+   * Update active state of patch buttons
+   */
+  updatePatchButtons(activeIndex) {
+    this.elements.patchButtons.forEach((button, index) => {
+      button.classList.toggle('active', index === activeIndex);
+    });
+  },
+
+  /**
+   * Handle hand tracking updates
+   */
+  onHandsUpdate(hands) {
+    if (!this.initialized) return;
+
+    // Check for patch cycling gesture (left hand open fist)
+    if (hands.left?.cyclePatchGesture) {
+      const patch = PatchManager.selectNextPatch();
+      AudioEngine.applyPatch(patch);
+      Renderer.updateConfigs(
+        patch.visuals || {},
+        patch.audio || AppConfig.audioDefaults
+      );
+      this.updatePatchButtons(PatchManager.currentPatchIndex);
+    }
+
+    // Control arpeggiator with right fist
+    AudioEngine.setArpeggiatorState(hands.right?.isFist || false);
+
+    // Control envelope based on hand presence
+    const handsPresent = hands.activeHandsCount > 0;
+    AudioEngine.setEnvelopeState(handsPresent);
+
+    // Update audio parameters if hands are present
+    if (handsPresent) {
+      AudioEngine.update(hands.left, hands.right);
+    }
+
+    // Handle "no hands" message timing
+    if (!handsPresent) {
+      if (!this.noHandsTimer) {
+        this.noHandsTimer = Date.now();
+      }
+    } else {
+      this.noHandsTimer = null;
+      this.noHandsOpacity = 0;
+    }
+  },
+
+  /**
+   * Main animation loop
+   */
+  animate() {
+    const now = performance.now();
+    const deltaTime = this.lastFrameTime
+      ? (now - this.lastFrameTime) / 1000
+      : 0;
+    this.lastFrameTime = now;
+
+    // Update "no hands" message opacity
     if (
-      this.eventHandlers.loadLlmPatch &&
-      this.domElements.loadLlmPatchButton
+      this.noHandsTimer &&
+      now - this.noHandsTimer > AppConfig.ui.noHandsMessageDelay
     ) {
-      this.domElements.loadLlmPatchButton.removeEventListener(
-        'click',
-        this.eventHandlers.loadLlmPatch
+      this.noHandsOpacity = Math.min(
+        1,
+        this.noHandsOpacity + deltaTime / AppConfig.ui.messageFadeInDuration
       );
     }
 
-    // Clear event handler references
-    this.eventHandlers = {
-      resize: null,
-      startExperience: null,
-      patchButtons: {},
-      loadLlmPatch: null, // FIXED: Added this to properly clean up
-    };
+    // Render frame
+    Renderer.drawFrame(
+      null,
+      HandInput.handPositions,
+      this.noHandsTimer !== null && this.noHandsOpacity > 0,
+      this.noHandsOpacity,
+      PatchManager.getCurrentPatch()
+    );
 
-    // Clean up other modules
-    Renderer.cleanup();
+    // Continue loop
+    this.animationFrameId = requestAnimationFrame(() => this.animate());
+  },
+
+  /**
+   * Clean up resources on page unload
+   */
+  cleanup() {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
+
     AudioEngine.cleanup();
     HandInput.cleanup();
+    Renderer.cleanup();
 
-    // Reset application state
-    this.isInitialized = false;
-    this.noHandsDetectedTimestamp = null;
-    this.isNoHandsMessageVisible = false;
-    this.noHandsMessageCurrentOpacity = 0;
-
-    console.log('App: Cleaned up all resources.');
+    console.log('App cleaned up');
   },
 };
 
-window.addEventListener('DOMContentLoaded', () => {
-  App.init();
-});
+// Initialize when DOM is ready
+window.addEventListener('DOMContentLoaded', () => App.init());
+
+// Clean up on page unload
+window.addEventListener('beforeunload', () => App.cleanup());
