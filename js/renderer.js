@@ -48,34 +48,83 @@ export const Renderer = {
 
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    // Draw video with proper aspect ratio
     if (this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
       this.ctx.save();
+
+      const videoAspect = this.video.videoWidth / this.video.videoHeight;
+      const canvasAspect = this.canvas.width / this.canvas.height;
+
+      let drawWidth, drawHeight, offsetX, offsetY;
+
+      if (videoAspect > canvasAspect) {
+        drawHeight = this.canvas.height;
+        drawWidth = drawHeight * videoAspect;
+        offsetX = (this.canvas.width - drawWidth) / 2;
+        offsetY = 0;
+      } else {
+        drawWidth = this.canvas.width;
+        drawHeight = drawWidth / videoAspect;
+        offsetX = 0;
+        offsetY = (this.canvas.height - drawHeight) / 2;
+      }
+
       this.ctx.scale(-1, 1);
       this.ctx.drawImage(
         this.video,
-        -this.canvas.width,
-        0,
-        this.canvas.width,
-        this.canvas.height
+        -offsetX - drawWidth,
+        offsetY,
+        drawWidth,
+        drawHeight
       );
       this.ctx.restore();
     }
 
     this._drawPitchMarkers();
 
+    let videoDrawWidth, videoDrawHeight, videoOffsetX, videoOffsetY;
+    if (this.video.videoWidth && this.video.videoHeight) {
+      const videoAspect = this.video.videoWidth / this.video.videoHeight;
+      const canvasAspect = this.canvas.width / this.canvas.height;
+
+      if (videoAspect > canvasAspect) {
+        videoDrawHeight = this.canvas.height;
+        videoDrawWidth = videoDrawHeight * videoAspect;
+        videoOffsetX = (this.canvas.width - videoDrawWidth) / 2;
+        videoOffsetY = 0;
+      } else {
+        videoDrawWidth = this.canvas.width;
+        videoDrawHeight = videoDrawWidth / videoAspect;
+        videoOffsetX = 0;
+        videoOffsetY = (this.canvas.height - videoDrawHeight) / 2;
+      }
+    } else {
+      videoDrawWidth = this.canvas.width;
+      videoDrawHeight = this.canvas.height;
+      videoOffsetX = 0;
+      videoOffsetY = 0;
+    }
+
     if (handData.left) {
-      const x = handData.left.x * this.canvas.width;
-      const y = handData.left.y * this.canvas.height;
+      const x = handData.left.x * videoDrawWidth + videoOffsetX;
+      const y = handData.left.y * videoDrawHeight + videoOffsetY;
       this._drawCrosshair(x, y, true, handData.left.y, deltaTime);
     }
 
     if (handData.right) {
-      const x = handData.right.x * this.canvas.width;
-      const y = handData.right.y * this.canvas.height;
+      const x = handData.right.x * videoDrawWidth + videoOffsetX;
+      const y = handData.right.y * videoDrawHeight + videoOffsetY;
       this._drawCrosshair(x, y, false, handData.right.y, deltaTime);
     }
 
-    this._updateRays(deltaTime, handData);
+    this._updateRays(
+      deltaTime,
+      handData,
+      videoDrawWidth,
+      videoDrawHeight,
+      videoOffsetX,
+      videoOffsetY
+    );
 
     if (showNoHandsMessage && messageOpacity > 0) {
       this._drawNoHandsMessage(messageOpacity);
@@ -190,18 +239,31 @@ export const Renderer = {
     return (numActiveOvertones - 1) / (overtoneCount - 1);
   },
 
-  _updateRays(deltaTime, handData) {
+  _updateRays(
+    deltaTime,
+    handData,
+    videoDrawWidth,
+    videoDrawHeight,
+    videoOffsetX,
+    videoOffsetY
+  ) {
     if (!handData || handData.activeHandsCount === 0) {
       this.rayStarts = [];
       return;
     }
 
     const nextRayStarts = [];
-    const leftX = handData.left ? handData.left.x * this.canvas.width : null;
-    const leftY = handData.left ? handData.left.y * this.canvas.height : null;
-    const rightX = handData.right ? handData.right.x * this.canvas.width : null;
+    const leftX = handData.left
+      ? handData.left.x * videoDrawWidth + videoOffsetX
+      : null;
+    const leftY = handData.left
+      ? handData.left.y * videoDrawHeight + videoOffsetY
+      : null;
+    const rightX = handData.right
+      ? handData.right.x * videoDrawWidth + videoOffsetX
+      : null;
     const rightY = handData.right
-      ? handData.right.y * this.canvas.height
+      ? handData.right.y * videoDrawHeight + videoOffsetY
       : null;
 
     this.rayStarts.forEach((ray) => {
