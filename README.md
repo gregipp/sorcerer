@@ -144,23 +144,23 @@ npm run build
 
 ```plaintext
 sorcerer/
-├── index.html          # Main HTML entry point
+├── index.html           # Main HTML entry point
 ├── css/
-│   └── style.css      # Application styles
+│   └── style.css        # Application styles
 ├── js/
-│   ├── config.js      # Global configuration
-│   ├── main.js        # Application controller
-│   ├── audio_engine.js # Web Audio synthesis
-│   ├── hand_input.js  # MediaPipe hand tracking
-│   ├── renderer.js    # Canvas visualization
+│   ├── config.js        # Global configuration
+│   ├── main.js          # Application controller
+│   ├── audio_engine.js  # Web Audio synthesis
+│   ├── hand_input.js    # MediaPipe hand tracking
+│   ├── renderer.js      # Canvas visualization
 │   └── patch_manager.js # Instrument preset management
-├── patches/           # Instrument presets (JSON)
+├── patches/             # Instrument presets (JSON)
 │   ├── classic_theremin.json
 │   ├── bright_saw_lead.json
 │   └── brutal_brass_bass.json
-├── package.json       # NPM configuration
-├── vite.config.js    # Build configuration
-└── README.md         # This file
+├── package.json         # NPM configuration
+├── vite.config.mjs      # Build configuration
+└── README.md            # This file
 ```
 
 ## Creating Custom Patches
