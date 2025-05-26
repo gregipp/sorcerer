@@ -15,6 +15,45 @@ export const PatchManager = {
   async loadDefaultPatches() {
     console.log('PatchManager: Loading default patches...');
 
+    // First check if patches are embedded in the HTML (static build)
+    const embeddedPatches = document.querySelectorAll(
+      'script[type="application/json"][data-patch]'
+    );
+
+    if (embeddedPatches.length > 0) {
+      console.log('Found embedded patches in HTML');
+
+      embeddedPatches.forEach((scriptTag) => {
+        try {
+          const patchData = JSON.parse(scriptTag.textContent);
+          const filename = scriptTag.getAttribute('data-patch');
+
+          if (this.validatePatch(patchData)) {
+            this.patches.push(patchData);
+            console.log(
+              `Loaded embedded patch: ${patchData.name} (${filename})`
+            );
+          } else {
+            console.warn(`Invalid embedded patch in ${filename}`);
+          }
+        } catch (error) {
+          console.error('Failed to parse embedded patch:', error);
+        }
+      });
+
+      if (this.patches.length === 0) {
+        throw new Error('Failed to load any embedded patches');
+      }
+
+      console.log(
+        `PatchManager: Loaded ${this.patches.length} embedded patches`
+      );
+      return;
+    }
+
+    // Fall back to loading from files (dynamic build / development)
+    console.log('No embedded patches found, loading from files...');
+
     // Try to load each default patch
     const loadPromises = AppConfig.defaultPatches.map((filename) =>
       this.loadPatchFromFile(`patches/${filename}`)

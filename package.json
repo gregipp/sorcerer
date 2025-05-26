@@ -5,7 +5,6 @@
   "main": "index.html",
   "type": "module",
   "scripts": {
-    "setup": "node setup.js",
     "dev": "vite",
     "build": "npm run build:static && npm run build:dynamic",
     "build:static": "vite build --mode static",
@@ -14,8 +13,7 @@
     "preview:static": "vite preview --outDir dist/static",
     "preview:dynamic": "vite preview --outDir dist/dynamic",
     "serve": "npx serve .",
-    "clean": "rimraf dist",
-    "test": "npm run build && npm run preview:static"
+    "clean": "rimraf dist"
   },
   "keywords": [
     "mediapipe",
