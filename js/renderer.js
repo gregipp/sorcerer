@@ -1,28 +1,19 @@
 // renderer.js - High-performance visual effects and canvas rendering for SORCERER
 import { AppConfig } from './config.js';
 
-/**
- * Renderer handles all visual output on the HTML5 canvas.
- * Optimized for 60fps performance with simple, effective ray effects.
- */
 export const Renderer = {
   canvas: null,
   ctx: null,
   video: null,
 
-  // Simple ray tracking
   rayStarts: [],
   lastFrameTime: Date.now(),
 
   notes: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
 
-  // Current configuration (merged from base + patch visuals)
   config: { ...AppConfig.visuals },
   audioConfig: { ...AppConfig.audioDefaults },
 
-  /**
-   * Initialize renderer with canvas and video elements
-   */
   init(canvasEl, videoEl) {
     this.canvas = canvasEl;
     this.ctx = this.canvas.getContext('2d');
@@ -31,26 +22,17 @@ export const Renderer = {
     this.lastFrameTime = Date.now();
   },
 
-  /**
-   * Update visual configuration from patch
-   */
   updateConfigs(visualConfig, audioConfig) {
     this.config = { ...AppConfig.visuals, ...visualConfig };
     this.audioConfig = { ...AppConfig.audioDefaults, ...audioConfig };
   },
 
-  /**
-   * Handle window resize
-   */
   resize() {
     if (!this.canvas) return;
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
   },
 
-  /**
-   * Main render loop
-   */
   drawFrame(
     rawResults,
     handData,
@@ -64,10 +46,8 @@ export const Renderer = {
     const deltaTime = (now - this.lastFrameTime) / 1000.0;
     this.lastFrameTime = now;
 
-    // Clear canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Draw mirrored video feed
     if (this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
       this.ctx.save();
       this.ctx.scale(-1, 1);
@@ -81,10 +61,8 @@ export const Renderer = {
       this.ctx.restore();
     }
 
-    // Draw pitch markers
     this._drawPitchMarkers();
 
-    // Draw hands and their rays
     if (handData.left) {
       const x = handData.left.x * this.canvas.width;
       const y = handData.left.y * this.canvas.height;
@@ -97,10 +75,8 @@ export const Renderer = {
       this._drawCrosshair(x, y, false, handData.right.y, deltaTime);
     }
 
-    // Update and draw rays
     this._updateRays(deltaTime, handData);
 
-    // Draw UI text
     if (showNoHandsMessage && messageOpacity > 0) {
       this._drawNoHandsMessage(messageOpacity);
     }
@@ -110,21 +86,14 @@ export const Renderer = {
     }
   },
 
-  /**
-   * Draw hand crosshair with rays and text
-   */
   _drawCrosshair(x, y, isLeftHand, normalizedY, deltaTime) {
-    const now = Date.now();
-
-    // Calculate intensity based on Y position
     const normalizedYForEffect = isLeftHand
-      ? 1 - normalizedY // Left hand: higher = more intensity
-      : this._calculateRightHandIntensity(normalizedY); // Right hand: based on overtones
+      ? 1 - normalizedY
+      : this._calculateRightHandIntensity(normalizedY);
 
     const sizeMultiplier = 1 + normalizedYForEffect * 3;
     const currentCrosshairSize = this.config.crosshairBaseSize * sizeMultiplier;
 
-    // Spawn rays
     const raySpeed =
       this.config.crosshairBaseSize * 0.5 +
       normalizedYForEffect * this.config.crosshairBaseSize * 2;
@@ -133,7 +102,6 @@ export const Renderer = {
       (this.config.rayDensityMultiplier || 1);
 
     if (Math.random() < raySpawnRate * deltaTime * 60) {
-      // Normalize to 60fps
       this.rayStarts.push({
         spawnX: x,
         spawnY: y,
@@ -145,25 +113,21 @@ export const Renderer = {
       });
     }
 
-    // Draw crosshair lines
     this.ctx.save();
     this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
     this.ctx.lineWidth = 2;
     const S = currentCrosshairSize / 2;
 
-    // Vertical line
     this.ctx.beginPath();
     this.ctx.moveTo(x, y - S);
     this.ctx.lineTo(x, y + S);
     this.ctx.stroke();
 
-    // Horizontal line
     this.ctx.beginPath();
     this.ctx.moveTo(x - S, y);
     this.ctx.lineTo(x + S, y);
     this.ctx.stroke();
 
-    // Diagonal lines
     const diagOffset = S / 1.414;
     this.ctx.beginPath();
     this.ctx.moveTo(x - diagOffset, y - diagOffset);
@@ -175,7 +139,6 @@ export const Renderer = {
     this.ctx.lineTo(x + diagOffset, y - diagOffset);
     this.ctx.stroke();
 
-    // Draw text labels
     this.ctx.font = `${this.config.crosshairFontSize}px -apple-system, system-ui, sans-serif`;
     this.ctx.fillStyle = 'white';
     this.ctx.textBaseline = 'middle';
@@ -215,9 +178,6 @@ export const Renderer = {
     this.ctx.restore();
   },
 
-  /**
-   * Calculate right hand intensity based on overtones
-   */
   _calculateRightHandIntensity(normalizedY) {
     const overtoneControl = 1 - normalizedY;
     const overtoneCount = Math.max(1, this.audioConfig.overtoneCount);
@@ -230,9 +190,6 @@ export const Renderer = {
     return (numActiveOvertones - 1) / (overtoneCount - 1);
   },
 
-  /**
-   * Update and draw all rays
-   */
   _updateRays(deltaTime, handData) {
     if (!handData || handData.activeHandsCount === 0) {
       this.rayStarts = [];
@@ -250,7 +207,6 @@ export const Renderer = {
     this.rayStarts.forEach((ray) => {
       ray.distance += ray.speed * deltaTime;
 
-      // Update ray origin based on current hand position
       let currentX, currentY;
       if (ray.isLeftHandSource && leftX !== null) {
         currentX = leftX;
@@ -259,7 +215,7 @@ export const Renderer = {
         currentX = rightX;
         currentY = rightY;
       } else {
-        return; // Skip if hand not present
+        return;
       }
 
       const alpha = Math.max(0, 1 - ray.distance / ray.maxDistance);
@@ -267,7 +223,6 @@ export const Renderer = {
       if (alpha > 0 && ray.distance < ray.maxDistance) {
         this.ctx.beginPath();
 
-        // Use patch ray color if specified
         const baseColor = this.config.rayColor || 'rgba(255, 255, 255, 0.7)';
         const match = baseColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
         if (match) {
@@ -298,9 +253,6 @@ export const Renderer = {
     this.rayStarts = nextRayStarts;
   },
 
-  /**
-   * Calculate note name from vertical position
-   */
   _getNoteFromY(normalizedY) {
     const octaveRange = this.config.endOctave - this.config.startOctave + 1;
     const totalNotes = octaveRange * 12;
@@ -310,9 +262,6 @@ export const Renderer = {
     return `${note}${octave}`;
   },
 
-  /**
-   * Draw pitch reference markers on right edge
-   */
   _drawPitchMarkers() {
     const octaveRange = this.config.endOctave - this.config.startOctave + 1;
     const totalNotes = octaveRange * 12;
@@ -328,7 +277,6 @@ export const Renderer = {
       const octave = this.config.startOctave + Math.floor(i / 12);
       const y = this.canvas.height * (1 - i / (totalNotes - 1));
 
-      // Draw line
       const isC = note === 'C';
       const lineLength = isC ? 25 : 15;
       this.ctx.strokeStyle = isC
@@ -341,7 +289,6 @@ export const Renderer = {
       this.ctx.lineTo(this.canvas.width, y);
       this.ctx.stroke();
 
-      // Draw text for C and G notes
       if (note === 'C' || note === 'G') {
         this.ctx.fillText(
           `${note}${octave}`,
@@ -353,9 +300,6 @@ export const Renderer = {
     this.ctx.restore();
   },
 
-  /**
-   * Draw "no hands" message
-   */
   _drawNoHandsMessage(opacity) {
     this.ctx.save();
     this.ctx.font = `bold ${
@@ -372,9 +316,6 @@ export const Renderer = {
     this.ctx.restore();
   },
 
-  /**
-   * Draw current patch name
-   */
   _drawPatchName(name) {
     this.ctx.font = `italic ${
       this.config.pitchMarkerFontSize * 1.1
@@ -384,9 +325,6 @@ export const Renderer = {
     this.ctx.fillText(`Patch: ${name}`, 20, this.canvas.height - 20);
   },
 
-  /**
-   * Clean up resources
-   */
   cleanup() {
     this.rayStarts = [];
     if (this.ctx && this.canvas) {

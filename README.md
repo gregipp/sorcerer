@@ -2,39 +2,6 @@
 
 A hand-tracking musical instrument using MediaPipe and Web Audio API. Control synthesizers with hand gestures in your browser.
 
-## How Patch Loading Works
-
-The build system automatically handles patch loading for both development and production:
-
-### Development / Dynamic Build
-
-- Patches are loaded from `patches/*.json` files via fetch()
-- Allows hot-reloading and easy patch development
-- Standard JSON files with proper MIME types
-
-### Static Build (Monolithic)
-
-- Patches are embedded directly in the HTML as `<script type="application/json">` tags
-- No network requests needed - everything is self-contained
-- Patches remain as valid JSON (not converted to JavaScript)
-- Example in the built HTML:
-
-  ```html
-  <script type="application/json" data-patch="classic_theremin.json" id="patch-0">
-  {
-    "name": "Classic Theremin",
-    "audio": { ... }
-  }
-  </script>
-  ```
-
-The `PatchManager` automatically detects which method to use:
-
-1. First checks for embedded patches in the DOM
-2. Falls back to file-based loading if none found
-
-This approach keeps the patches as pure JSON throughout the build process, making them easier to validate, edit, and maintain.
-
 ## Features
 
 - **Hand Tracking**: Uses MediaPipe for real-time hand detection
@@ -53,7 +20,7 @@ This approach keeps the patches as pure JSON throughout the build process, makin
 
 ### Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 22+ and npm
 - Modern web browser with WebRTC support
 - Webcam for hand tracking
 
@@ -66,9 +33,6 @@ cd sorcerer
 
 # Install dependencies
 npm install
-
-# Note: This will create a package-lock.json file
-# Commit this file to ensure consistent dependencies
 ```
 
 ### Development
@@ -79,66 +43,24 @@ npm run dev
 # Opens at http://localhost:3000
 ```
 
-### Testing Locally
+## Building for Production
 
 ```bash
-# Serve the current directory (no build needed)
-npm run serve
-# Opens at http://localhost:3000
+# Build single HTML file with everything embedded
+npm run build
+
+# Preview the build
+npm run preview
+
+# Output: dist/index.html
 ```
 
-## Building for Deployment
-
-The project supports two deployment modes:
-
-### 1. Static Build (Monolithic)
-
-Creates a single HTML file with all assets inlined. Perfect for:
+The build creates a single HTML file with all assets inlined - perfect for:
 
 - Single file distribution
 - Offline usage
 - Email attachments
-- Simple hosting
-
-```bash
-# Build static version
-npm run build:static
-
-# Preview static build
-npm run preview:static
-
-# Output: dist/static/index.html
-```
-
-### 2. Dynamic Build (Modular)
-
-Preserves the module structure with separate files. Ideal for:
-
-- CDN deployment
-- Better caching
-- Easier debugging
-- Dynamic patch loading
-
-```bash
-# Build dynamic version
-npm run build:dynamic
-
-# Preview dynamic build
-npm run preview:dynamic
-
-# Output: dist/dynamic/
-#   ├── index.html
-#   ├── js/
-#   ├── css/
-#   └── patches/
-```
-
-### Build Both Versions
-
-```bash
-# Build both static and dynamic versions
-npm run build
-```
+- Simple hosting (GitHub Pages, etc.)
 
 ## Project Structure
 
@@ -208,34 +130,20 @@ Patches are JSON files that define synthesizer parameters. Create a new patch:
 ### GitHub Pages
 
 ```bash
-# Build static version
-npm run build:static
-
-# Deploy dist/static/index.html to GitHub Pages
+# Build and deploy
+npm run build
+# Push dist/index.html to gh-pages branch
 ```
 
 ### Netlify/Vercel
 
 ```bash
-# Use dynamic build for better performance
-npm run build:dynamic
+# Build command
+npm run build
 
-# Deploy dist/dynamic/ directory
+# Publish directory
+dist
 ```
-
-### Web Server
-
-For dynamic deployment with a web server:
-
-```bash
-npm run build:dynamic
-# Copy dist/dynamic/ contents to your web root
-```
-
-Note: The dynamic version requires proper MIME types for:
-
-- `.js` → `application/javascript`
-- `.json` → `application/json`
 
 ## Browser Support
 
@@ -248,14 +156,7 @@ Requires:
 
 - WebRTC for camera access
 - Web Audio API
-- ES6 modules (for dynamic build)
-
-## Development Notes
-
-- The static build inlines patches as JavaScript to avoid CORS issues
-- Hand tracking works best with good lighting
-- 2K camera resolution provides better tracking accuracy
-- Use `console.log` for debugging (preserved in builds)
+- ES6 modules
 
 ## Troubleshooting
 
@@ -271,17 +172,11 @@ Requires:
 - Check system volume
 - Verify browser supports Web Audio API
 
-**Patches not loading (dynamic build):**
-
-- Check web server MIME types
-- Verify CORS headers if loading from CDN
-- Check browser console for errors
-
 **Performance issues:**
 
 - Reduce camera resolution in `hand_input.js`
 - Disable ray effects in patch visuals
-- Use static build for better performance
+- Close other tabs/applications
 
 ## License
 

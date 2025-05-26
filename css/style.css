@@ -1,20 +1,18 @@
-/* Global body styles */
 body {
   margin: 0;
   overflow: hidden;
   background: black;
   color: white;
-  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; /* Added sans-serif fallback */
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
 
-/* Background image styling */
 .background-image {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 1; /* Ensures it's behind the canvas and UI elements */
+  z-index: 1;
   opacity: 1;
   transition: opacity 0.8s ease-in-out;
 }
@@ -25,116 +23,107 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover; /* Ensures the image covers the entire container */
-  opacity: 0.5; /* Makes image darker */
+  object-fit: cover;
+  opacity: 0.5;
 }
 
 .background-image.hidden {
   opacity: 0;
 }
 
-/* Video element (for MediaPipe input, typically hidden) */
 #video {
-  display: none; /* Hidden as it's only for processing */
-  transform: scaleX(-1); /* Mirrors the video feed */
+  display: none;
+  transform: scaleX(-1);
 }
 
-/* Canvas for rendering visuals */
 #canvas {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 2; /* Above the background, below UI popups like logo/patch panel */
+  z-index: 2;
 }
 
-/* Logo and subtitle container */
 .logo-container {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 30; /* High z-index to be on top initially */
+  z-index: 30;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   transition: all 0.8s ease-in-out;
-  width: 100%; /* Ensure it takes full width for centering text */
 }
 
 .logo {
   font-family: 'Macondo Swash Caps', cursive;
-  font-size: min(20vw, 200px); /* Responsive font size */
+  font-size: min(20vw, 200px);
   color: white;
   margin: 0;
-  padding: 0 40px; /* Padding for smaller screens */
+  padding: 0 40px;
   transition: all 0.8s ease-in-out;
-  width: auto; /* Let the text define its width */
 }
 
 .subtitle {
-  font-size: clamp(18px, 3vw, 24px); /* Responsive font size for subtitle */
+  font-size: clamp(18px, 3vw, 24px);
   margin-top: 20px;
   opacity: 1;
   transition: opacity 0.4s ease-in-out;
 }
 
-/* Styles for when the logo moves to the top */
 .logo-container.moved {
-  top: 40px; /* New top position */
-  transform: translate(-50%, 0); /* Adjust transform for top alignment */
+  top: 40px;
+  transform: translate(-50%, 0);
 }
 
 .logo-container.moved .logo {
-  font-size: min(8vw, 60px); /* Smaller font size when moved */
+  font-size: min(8vw, 60px);
 }
 
 .logo-container.moved .subtitle {
   opacity: 0;
-  pointer-events: none; /* Prevent interaction when hidden */
+  pointer-events: none;
 }
 
-/* Patch panel for selecting sounds */
 .patch-panel {
   position: fixed;
-  left: -150px; /* Initially off-screen to the left, increased width for potential LLM input */
+  left: -150px;
   top: 50%;
   transform: translateY(-50%);
-  background-color: rgba(0, 0, 0, 0.25); /* Semi-transparent black */
+  background-color: rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px); /* For Safari */
-  padding: 15px; /* Increased padding */
+  -webkit-backdrop-filter: blur(8px);
+  padding: 15px;
   border-radius: 25px;
   display: flex;
   flex-direction: column;
-  gap: 12px; /* Increased gap */
-  z-index: 100; /* Ensure it's above other elements */
-  border: none;
-  transition: left 0.5s ease-in-out; /* For slide-in animation */
-  width: 120px; /* Slightly wider to accommodate text area potentially */
+  gap: 12px;
+  z-index: 100;
+  transition: left 0.5s ease-in-out;
+  width: 120px;
 }
 
 .patch-panel.visible {
-  left: 20px; /* Target position when visible, increased for more space */
+  left: 20px;
 }
 
-/* Individual patch buttons */
 .patch-button {
   width: 50px;
   height: 50px;
   background-color: rgba(80, 80, 80, 0.8);
   border: none;
-  color: white; /* Default icon color is white */
+  color: white;
   font-size: 20px;
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  border-radius: 50%; /* Make buttons round */
-  transition: background-color 0.3s, color 0.3s; /* Added color transition */
-  align-self: center; /* Center buttons in the panel if panel width changes */
+  border-radius: 50%;
+  transition: background-color 0.3s, color 0.3s;
+  align-self: center;
 }
 
 .patch-button:hover {
@@ -142,49 +131,38 @@ body {
 }
 
 .patch-button.active {
-  background-color: rgba(255, 255, 255, 0.9); /* White background for active */
-  color: black; /* Icon becomes black for active */
+  background-color: rgba(255, 255, 255, 0.9);
+  color: black;
 }
 
-/* Styling for LLM Patch Input Area */
 .llm-patch-input-container {
-  display: flex; /* Use flex for better control over textarea and button */
+  display: none;
   flex-direction: column;
-  gap: 8px; /* Space between textarea and button */
+  gap: 8px;
   margin-top: 10px;
-  padding: 5px;
-  background-color: rgba(
-    10,
-    10,
-    10,
-    0.5
-  ); /* Slightly different background for the container */
+  padding: 10px;
+  background-color: rgba(10, 10, 10, 0.5);
   border-radius: 10px;
 }
 
 #llmPatchJson {
-  width: 100%; /* Take full width of its container */
+  width: 100%;
   box-sizing: border-box;
-  background-color: rgba(30, 30, 30, 0.8); /* Darker background for textarea */
-  color: #e0e0e0; /* Light grey text */
-  border: 1px solid rgba(100, 100, 100, 0.5); /* Subtle border */
-  border-radius: 8px; /* Rounded corners */
+  background-color: rgba(30, 30, 30, 0.8);
+  color: #e0e0e0;
+  border: 1px solid rgba(100, 100, 100, 0.5);
+  border-radius: 8px;
   padding: 8px;
-  font-family: 'Courier New', Courier, monospace; /* Monospace font for JSON */
-  font-size: 11px; /* Smaller font for density */
-  resize: vertical; /* Allow vertical resizing */
-  min-height: 60px; /* Minimum height */
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  resize: vertical;
+  min-height: 60px;
 }
 
 #loadLlmPatch {
   width: 100%;
   padding: 10px;
-  background-color: rgba(
-    60,
-    120,
-    220,
-    0.8
-  ); /* A distinct color for the load button */
+  background-color: rgba(60, 120, 220, 0.8);
   color: white;
   border: none;
   border-radius: 8px;
