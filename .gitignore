@@ -40,6 +40,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
 
 # Environment variables
 .env
@@ -50,6 +51,27 @@ yarn-error.log*
 dist/
 build/
 
+# Vite
+.vite/
+*.local
+
 # System logs or crash reports
-*.log
 *.crash
+
+# Package lock files (optional - uncomment if you want to ignore)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Editor directories and files
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

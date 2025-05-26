@@ -1,0 +1,43 @@
+{
+  "name": "sorcerer",
+  "version": "1.0.0",
+  "description": "SORCERER - A hand-tracking musical instrument using MediaPipe and Web Audio",
+  "main": "index.html",
+  "type": "module",
+  "scripts": {
+    "setup": "node setup.js",
+    "dev": "vite",
+    "build": "npm run build:static && npm run build:dynamic",
+    "build:static": "vite build --mode static",
+    "build:dynamic": "vite build --mode dynamic",
+    "preview": "vite preview",
+    "preview:static": "vite preview --outDir dist/static",
+    "preview:dynamic": "vite preview --outDir dist/dynamic",
+    "serve": "npx serve .",
+    "clean": "rimraf dist",
+    "test": "npm run build && npm run preview:static"
+  },
+  "keywords": [
+    "mediapipe",
+    "hand-tracking",
+    "web-audio",
+    "synthesizer",
+    "theremin",
+    "musical-instrument"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@vitejs/plugin-legacy": "^5.4.3",
+    "rimraf": "^6.0.1",
+    "terser": "^5.36.0",
+    "vite": "^5.4.11",
+    "vite-plugin-singlefile": "^2.0.3"
+  },
+  "dependencies": {
+    "serve": "^14.2.4"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
