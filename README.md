@@ -177,7 +177,3 @@ Requires:
 - Reduce camera resolution in `hand_input.js`
 - Disable ray effects in patch visuals
 - Close other tabs/applications
-
-## License
-
-MIT License - See LICENSE file for details
