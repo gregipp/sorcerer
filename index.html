@@ -28,65 +28,110 @@
     </div>
 
     <div class="patch-panel">
-      <button
-        id="thereminPatch"
-        class="patch-button active"
-        title="Theremin Sound"
-      >
-        <svg
-          width="28"
-          height="28"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+      <div class="patch-buttons-container">
+        <button
+          id="thereminPatch"
+          class="patch-button active"
+          title="Theremin Sound"
         >
-          <circle cx="12" cy="12" r="10"></circle>
-          <circle cx="12" cy="12" r="6"></circle>
-          <circle cx="12" cy="12" r="2"></circle>
-        </svg>
-      </button>
-      <button id="synthPatch" class="patch-button" title="Synthesizer Sound">
-        <svg
-          width="28"
-          height="28"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <circle cx="12" cy="12" r="6"></circle>
+            <circle cx="12" cy="12" r="2"></circle>
+          </svg>
+        </button>
+        <button id="synthPatch" class="patch-button" title="Synthesizer Sound">
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="3 12 6 6 12 18 18 6 21 12"></polyline>
+          </svg>
+        </button>
+        <button
+          id="bassSynthPatch"
+          class="patch-button"
+          title="Bass Synth Sound"
         >
-          <polyline points="3 12 6 6 12 18 18 6 21 12"></polyline>
-        </svg>
-      </button>
-      <button id="bassSynthPatch" class="patch-button" title="Bass Synth Sound">
-        <svg
-          width="28"
-          height="28"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M3 12c0-3.866 3.134-7 7-7s7 3.134 7 7-3.134 7-7 7-7-3.134-7-7z"
+              transform="scale(1, 0.7) translate(0, 2)"
+            ></path>
+            <path d="M3.5 12H20.5" stroke-dasharray="3 3" opacity="0.5"></path>
+          </svg>
+        </button>
+        <button
+          id="openLlmButton"
+          class="llm-button"
+          title="Create Custom Patch"
         >
-          <path
-            d="M3 12c0-3.866 3.134-7 7-7s7 3.134 7 7-3.134 7-7 7-7-3.134-7-7z"
-            transform="scale(1, 0.7) translate(0, 2)"
-          ></path>
-          <path d="M3.5 12H20.5" stroke-dasharray="3 3" opacity="0.5"></path>
-        </svg>
-      </button>
-      <div class="llm-patch-input-container">
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="llm-input-container">
+        <div class="llm-input-header">
+          <span class="llm-input-title">Create Custom Patch</span>
+          <button id="closeLlmButton" class="close-llm-button" title="Close">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
         <textarea
-          id="llmPatchJson"
-          placeholder="Paste LLM-generated JSON patch here..."
-          rows="5"
+          id="llmQueryInput"
+          placeholder="Paste a JSON patch or describe the sound you want...&#10;&#10;Examples:&#10;• A deep, growling bass with lots of reverb&#10;• A bright, shimmering lead sound&#10;• An ethereal pad with slow attack"
+          rows="6"
         ></textarea>
-        <button id="loadLlmPatch">Load Custom Patch</button>
+        <button id="generatePatchButton">Generate Patch</button>
+        <div class="llm-status" id="llmStatus"></div>
       </div>
     </div>
 

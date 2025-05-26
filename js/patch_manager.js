@@ -4,6 +4,7 @@ import { AppConfig } from './config.js';
 export const PatchManager = {
   patches: [],
   currentPatchIndex: 0,
+  defaultPatchCount: 0,
 
   async loadDefaultPatches() {
     console.log('PatchManager: Loading patches...');
@@ -49,6 +50,7 @@ export const PatchManager = {
       throw new Error('Failed to load any patches');
     }
 
+    this.defaultPatchCount = this.patches.length;
     console.log(`PatchManager: Loaded ${this.patches.length} patches`);
   },
 
@@ -65,6 +67,21 @@ export const PatchManager = {
     this.patches.push(patchData);
     console.log(`Added patch: ${patchData.name}`);
     return true;
+  },
+
+  deletePatch(index) {
+    // Don't allow deletion of default patches
+    if (index < this.defaultPatchCount) {
+      console.warn('Cannot delete default patches');
+      return false;
+    }
+
+    if (index >= 0 && index < this.patches.length) {
+      const deletedPatch = this.patches.splice(index, 1)[0];
+      console.log(`Deleted patch: ${deletedPatch.name}`);
+      return true;
+    }
+    return false;
   },
 
   validatePatch(patch) {

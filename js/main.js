@@ -19,8 +19,13 @@ const App = {
     backgroundImage: null,
     patchPanel: null,
     patchButtons: [],
-    llmTextarea: null,
-    llmButton: null,
+    patchButtonsContainer: null,
+    llmInputContainer: null,
+    llmQueryInput: null,
+    generatePatchButton: null,
+    openLlmButton: null,
+    closeLlmButton: null,
+    llmStatus: null,
   },
 
   async init() {
@@ -32,11 +37,19 @@ const App = {
     this.elements.patchButtons = Array.from(
       document.querySelectorAll('.patch-button')
     );
-    this.elements.llmTextarea = document.getElementById('llmPatchJson');
-    this.elements.llmButton = document.getElementById('loadLlmPatch');
-    this.elements.llmContainer = document.querySelector(
-      '.llm-patch-input-container'
+    this.elements.patchButtonsContainer = document.querySelector(
+      '.patch-buttons-container'
     );
+    this.elements.llmInputContainer = document.querySelector(
+      '.llm-input-container'
+    );
+    this.elements.llmQueryInput = document.getElementById('llmQueryInput');
+    this.elements.generatePatchButton = document.getElementById(
+      'generatePatchButton'
+    );
+    this.elements.openLlmButton = document.getElementById('openLlmButton');
+    this.elements.closeLlmButton = document.getElementById('closeLlmButton');
+    this.elements.llmStatus = document.getElementById('llmStatus');
 
     if (!this.elements.video || !this.elements.canvas) {
       console.error('Critical elements missing from page');
@@ -76,7 +89,6 @@ const App = {
     this.elements.backgroundImage.classList.add('hidden');
     setTimeout(() => {
       this.elements.patchPanel.classList.add('visible');
-      this.elements.llmContainer.style.display = 'flex';
     }, 600);
 
     try {
@@ -121,37 +133,228 @@ const App = {
     });
 
     this.updatePatchButtons(0);
+    this.updateCustomPatchButtons();
 
-    this.elements.llmButton.addEventListener('click', () => {
+    // LLM interface handlers
+    this.elements.openLlmButton.addEventListener('click', () => {
+      this.openLlmInterface();
+    });
+
+    this.elements.closeLlmButton.addEventListener('click', () => {
+      this.closeLlmInterface();
+    });
+
+    this.elements.generatePatchButton.addEventListener('click', () => {
+      this.generatePatchFromQuery();
+    });
+
+    this.elements.llmQueryInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        this.generatePatchFromQuery();
+      }
+    });
+  },
+
+  openLlmInterface() {
+    this.elements.patchPanel.classList.add('input-mode');
+    this.elements.patchButtonsContainer.classList.add('hidden');
+    this.elements.llmInputContainer.classList.add('visible');
+    // Focus after animation completes
+    setTimeout(() => {
+      this.elements.llmQueryInput.focus();
+    }, 300);
+  },
+
+  closeLlmInterface() {
+    this.elements.patchPanel.classList.remove('input-mode');
+    this.elements.patchButtonsContainer.classList.remove('hidden');
+    this.elements.llmInputContainer.classList.remove('visible');
+    this.elements.llmStatus.textContent = '';
+  },
+
+  async generatePatchFromQuery() {
+    const query = this.elements.llmQueryInput.value.trim();
+    if (!query) {
+      this.elements.llmStatus.textContent = 'Please enter a description';
+      return;
+    }
+
+    this.elements.generatePatchButton.disabled = true;
+    this.elements.llmStatus.textContent = 'Generating patch...';
+
+    try {
+      let patch;
+
+      // First, try to parse as JSON
       try {
-        const patchData = JSON.parse(this.elements.llmTextarea.value);
+        const jsonPatch = JSON.parse(query);
+        // If it parses successfully and has the required structure, use it
+        if (jsonPatch && typeof jsonPatch === 'object') {
+          patch = jsonPatch;
+          console.log('Using provided JSON patch');
+        }
+      } catch (jsonError) {
+        // Not valid JSON, try LLM approach
+        console.log('Input is not valid JSON, attempting LLM generation');
+        this.elements.llmStatus.textContent = 'Calling LLM...';
 
-        if (PatchManager.addPatch(patchData)) {
-          const newIndex = PatchManager.getAllPatches().length - 1;
-          const patch = PatchManager.selectPatch(newIndex);
+        // TODO: Implement actual LLM API call here
+        // const response = await fetch('/api/generate-patch', {
+        //   method: 'POST',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify({ description: query })
+        // });
+        // patch = await response.json();
 
+        // For now, show not implemented message
+        this.elements.llmStatus.textContent =
+          'LLM generation not yet implemented';
+        return;
+      }
+
+      if (PatchManager.addPatch(patch)) {
+        const newIndex = PatchManager.getAllPatches().length - 1;
+        const loadedPatch = PatchManager.selectPatch(newIndex);
+
+        AudioEngine.applyPatch(loadedPatch);
+        Renderer.updateConfigs(
+          loadedPatch.visuals || {},
+          loadedPatch.audio || AppConfig.audioDefaults
+        );
+
+        this.updateCustomPatchButtons();
+        this.updatePatchButtons(newIndex);
+
+        this.elements.llmStatus.textContent = `Created: ${patch.name}`;
+        setTimeout(() => {
+          this.closeLlmInterface();
+          this.elements.llmQueryInput.value = '';
+        }, 1500);
+      } else {
+        this.elements.llmStatus.textContent = 'Invalid patch format';
+      }
+    } catch (error) {
+      console.error('Failed to generate patch:', error);
+      this.elements.llmStatus.textContent = 'Failed to generate patch';
+    } finally {
+      this.elements.generatePatchButton.disabled = false;
+    }
+  },
+
+  updatePatchButtons(activeIndex) {
+    // Update built-in patch buttons
+    this.elements.patchButtons.forEach((button, index) => {
+      button.classList.toggle('active', index === activeIndex);
+    });
+
+    // Update custom patch buttons
+    const customButtons = document.querySelectorAll('.custom-patch-button');
+    customButtons.forEach((button, index) => {
+      const customIndex = this.elements.patchButtons.length + index;
+      button.classList.toggle('active', customIndex === activeIndex);
+    });
+  },
+
+  updateCustomPatchButtons() {
+    // Remove existing custom patch buttons
+    const existingCustomButtons = document.querySelectorAll(
+      '.custom-patch-button'
+    );
+    existingCustomButtons.forEach((button) => button.remove());
+
+    // Get all patches and add buttons for custom ones
+    const allPatches = PatchManager.getAllPatches();
+    const defaultPatchCount = this.elements.patchButtons.length;
+
+    // Check if we have custom patches
+    const hasCustomPatch = allPatches.length > defaultPatchCount;
+
+    // Enable/disable the plus button based on custom patch limit (1)
+    this.elements.openLlmButton.disabled = hasCustomPatch;
+
+    // Add custom patch buttons after the default patches and before the LLM button
+    if (hasCustomPatch) {
+      const patch = allPatches[defaultPatchCount];
+      const button = this.createCustomPatchButton(patch, defaultPatchCount);
+      this.elements.openLlmButton.parentNode.insertBefore(
+        button,
+        this.elements.openLlmButton
+      );
+    }
+  },
+
+  createCustomPatchButton(patch, index) {
+    const button = document.createElement('button');
+    button.className = 'custom-patch-button';
+    button.title = patch.name;
+
+    // Create wizard hat SVG
+    button.innerHTML = `
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+        <!-- Wizard hat -->
+        <path d="M12 2 L7 20 L17 20 Z"></path>
+        <!-- Hat brim -->
+        <path d="M4 20 L20 20" stroke-width="3"></path>
+        <!-- Star on hat -->
+        <path d="M12 8 L11.5 9.5 L10 9.5 L11 10.5 L10.5 12 L12 11 L13.5 12 L13 10.5 L14 9.5 L12.5 9.5 Z" stroke-width="1" fill="currentColor"></path>
+      </svg>
+    `;
+
+    // Add delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-patch-button';
+    deleteBtn.innerHTML = '×';
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      this.deleteCustomPatch(index);
+    };
+    button.appendChild(deleteBtn);
+
+    // Add click handler
+    button.addEventListener('click', () => {
+      const selectedPatch = PatchManager.selectPatch(index);
+      if (selectedPatch) {
+        AudioEngine.applyPatch(selectedPatch);
+        Renderer.updateConfigs(
+          selectedPatch.visuals || {},
+          selectedPatch.audio || AppConfig.audioDefaults
+        );
+        this.updatePatchButtons(index);
+      }
+    });
+
+    return button;
+  },
+
+  deleteCustomPatch(index) {
+    const currentIndex = PatchManager.currentPatchIndex;
+    if (PatchManager.deletePatch(index)) {
+      this.updateCustomPatchButtons();
+
+      // If we deleted the current patch, select a new one
+      if (currentIndex === index) {
+        const newIndex = Math.min(
+          currentIndex,
+          PatchManager.getAllPatches().length - 1
+        );
+        const patch = PatchManager.selectPatch(newIndex);
+        if (patch) {
           AudioEngine.applyPatch(patch);
           Renderer.updateConfigs(
             patch.visuals || {},
             patch.audio || AppConfig.audioDefaults
           );
-
-          this.elements.llmTextarea.value = '';
-          alert(`Loaded custom patch: ${patch.name}`);
-        } else {
-          alert('Invalid patch format. Check console for details.');
         }
-      } catch (error) {
-        console.error('Failed to parse patch JSON:', error);
-        alert('Invalid JSON. Please check your patch data.');
+      } else if (currentIndex > index) {
+        // Adjust the current index if needed
+        PatchManager.currentPatchIndex = currentIndex - 1;
       }
-    });
-  },
 
-  updatePatchButtons(activeIndex) {
-    this.elements.patchButtons.forEach((button, index) => {
-      button.classList.toggle('active', index === activeIndex);
-    });
+      this.updatePatchButtons(PatchManager.currentPatchIndex);
+
+      // Re-enable the plus button after deletion
+      this.elements.openLlmButton.disabled = false;
+    }
   },
 
   onHandsUpdate(hands) {
