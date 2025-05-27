@@ -174,6 +174,14 @@ const App = {
     this.elements.patchButtonsContainer.classList.remove('hidden');
     this.elements.llmInputContainer.classList.remove('visible');
     this.elements.llmStatus.textContent = '';
+
+    // Update the has-custom-patch class after removing input-mode
+    const allPatches = PatchManager.getAllPatches();
+    const hasCustomPatch =
+      allPatches.length > this.elements.patchButtons.length;
+    if (hasCustomPatch) {
+      this.elements.patchPanel.classList.add('has-custom-patch');
+    }
   },
 
   async generatePatchFromQuery() {
@@ -223,14 +231,17 @@ const App = {
           loadedPatch.audio || AppConfig.audioDefaults
         );
 
+        // Update buttons immediately - they'll be hidden by CSS during input mode
         this.updateCustomPatchButtons();
         this.updatePatchButtons(newIndex);
 
         this.elements.llmStatus.textContent = `Created: ${patch.name}`;
+
+        // Brief delay to show success message
         setTimeout(() => {
           this.closeLlmInterface();
           this.elements.llmQueryInput.value = '';
-        }, 1500);
+        }, 800);
       } else {
         this.elements.llmStatus.textContent = 'Invalid patch format';
       }
@@ -269,6 +280,14 @@ const App = {
 
     // Check if we have custom patches
     const hasCustomPatch = allPatches.length > defaultPatchCount;
+
+    // Only add the has-custom-patch class if we're not in input mode
+    if (!this.elements.patchPanel.classList.contains('input-mode')) {
+      this.elements.patchPanel.classList.toggle(
+        'has-custom-patch',
+        hasCustomPatch
+      );
+    }
 
     // Enable/disable the plus button based on custom patch limit (1)
     this.elements.openLlmButton.disabled = hasCustomPatch;

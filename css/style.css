@@ -172,17 +172,13 @@ body {
   visibility: hidden;
   opacity: 0;
   transition: visibility 0s 0.3s, opacity 0.3s ease-in-out;
+  overflow: hidden;
 }
 
 .llm-input-container.visible {
   visibility: visible;
   opacity: 1;
   transition: visibility 0s, opacity 0.3s ease-in-out 0.3s;
-}
-
-.llm-input-container:not(.visible) * {
-  opacity: 0;
-  transition: opacity 0.1s ease-out;
 }
 
 .llm-input-header {
@@ -302,6 +298,10 @@ body {
 .custom-patch-button.active {
   background-color: rgba(255, 255, 255, 0.9);
   color: black;
+}
+
+.patch-panel.input-mode .custom-patch-button {
+  display: none !important;
 }
 
 .delete-patch-button {
