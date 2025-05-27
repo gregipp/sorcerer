@@ -158,18 +158,21 @@ const App = {
   openLlmInterface() {
     this.elements.patchPanel.classList.add('input-mode');
     this.elements.patchButtonsContainer.classList.add('hidden');
-    this.elements.llmInputContainer.classList.add('visible');
-    // Focus after animation completes
     setTimeout(() => {
-      this.elements.llmQueryInput.focus();
+      this.elements.llmInputContainer.classList.add('visible');
+      setTimeout(() => {
+        this.elements.llmQueryInput.focus();
+      }, 300);
     }, 300);
   },
 
   closeLlmInterface() {
-    this.elements.patchPanel.classList.remove('input-mode');
-    this.elements.patchButtonsContainer.classList.remove('hidden');
     this.elements.llmInputContainer.classList.remove('visible');
-    this.elements.llmStatus.textContent = '';
+    setTimeout(() => {
+      this.elements.patchPanel.classList.remove('input-mode');
+      this.elements.patchButtonsContainer.classList.remove('hidden');
+      this.elements.llmStatus.textContent = '';
+    }, 300);
   },
 
   async generatePatchFromQuery() {
@@ -222,14 +225,21 @@ const App = {
           loadedPatch.audio || AppConfig.audioDefaults
         );
 
+        // Add everything immediately
         this.updateCustomPatchButtons();
         this.updatePatchButtons(newIndex);
 
         this.elements.llmStatus.textContent = `Created: ${patch.name}`;
-        setTimeout(() => {
-          this.closeLlmInterface();
-          this.elements.llmQueryInput.value = '';
-        }, 1500);
+        this.elements.llmStatus.style.opacity = '1';
+
+        // Just close after a brief moment for user to see message
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            this.closeLlmInterface();
+            this.elements.llmQueryInput.value = '';
+            this.elements.llmStatus.style.opacity = '0';
+          });
+        });
       } else {
         this.elements.llmStatus.textContent = 'Invalid patch format';
       }
@@ -268,6 +278,13 @@ const App = {
 
     // Check if we have custom patches
     const hasCustomPatch = allPatches.length > defaultPatchCount;
+
+    // Update panel height class
+    if (hasCustomPatch) {
+      this.elements.patchPanel.classList.add('has-custom-patch');
+    } else {
+      this.elements.patchPanel.classList.remove('has-custom-patch');
+    }
 
     // Enable/disable the plus button based on custom patch limit (1)
     this.elements.openLlmButton.disabled = hasCustomPatch;

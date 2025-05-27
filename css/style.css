@@ -104,6 +104,11 @@ body {
   z-index: 100;
   transition: all 0.5s ease-in-out;
   width: 50px;
+  height: 234px; /* Adjusted for 4 buttons */
+}
+
+.patch-panel.has-custom-patch {
+  height: 300px; /* Adjusted for 5 buttons */
 }
 
 .patch-panel.visible {
@@ -113,6 +118,7 @@ body {
 .patch-panel.input-mode {
   width: 400px;
   padding: 20px;
+  /* Height stays whatever it was (254px or 328px) */
 }
 
 .patch-buttons-container {
@@ -159,14 +165,19 @@ body {
 }
 
 .llm-input-container {
-  display: none;
+  display: flex;
   flex-direction: column;
   gap: 12px;
   width: 100%;
+  visibility: hidden;
+  opacity: 0;
+  transition: visibility 0s 0.3s, opacity 0.3s ease-in-out;
 }
 
 .llm-input-container.visible {
-  display: flex;
+  visibility: visible;
+  opacity: 1;
+  transition: visibility 0s, opacity 0.3s ease-in-out 0.3s;
 }
 
 .llm-input-header {
@@ -234,7 +245,7 @@ body {
 #generatePatchButton {
   width: 100%;
   padding: 12px;
-  background-color: rgba(60, 120, 220, 0.8);
+  background-color: rgba(80, 80, 80, 0.8);
   color: white;
   border: none;
   border-radius: 8px;
@@ -245,7 +256,7 @@ body {
 }
 
 #generatePatchButton:hover {
-  background-color: rgba(70, 140, 255, 0.9);
+  background-color: rgba(100, 100, 100, 0.9);
 }
 
 #generatePatchButton:disabled {
@@ -254,10 +265,13 @@ body {
 }
 
 .llm-status {
+  width: 400px;
+  bottom: 6px;
+  position: absolute;
   font-size: 12px;
   color: rgba(200, 200, 200, 0.7);
   text-align: center;
-  min-height: 16px;
+  height: 16px;
 }
 
 .custom-patch-button {
