@@ -50,18 +50,20 @@ npm run dev
 #### With AI Patch Generation
 
 1. Create a `.env` file in the project root:
-```env
-ANTHROPIC_API_KEY=your-api-key-here
-```
+
+   ```env
+   ANTHROPIC_API_KEY=your-api-key-here
+   ```
 
 2. Start both the development server and API proxy:
-```bash
-# In one terminal, start the API proxy server
-npm run server
 
-# In another terminal, start the development server
-npm run dev
-```
+   ```bash
+   # In one terminal, start the API proxy server
+   npm run server
+
+   # In another terminal, start the development server
+   npm run dev
+   ```
 
 The API proxy server runs on port 3001 by default and handles communication with the Anthropic API for patch generation.
 
@@ -208,6 +210,7 @@ You'll need to deploy both the static site and the Node.js server:
 3. **Update** `js/llm_service.js` to point to your deployed server URL
 
 Example server deployment (Heroku):
+
 ```bash
 # Add Procfile
 echo "web: node server.js" > Procfile
@@ -264,4 +267,3 @@ Requires:
 - Never commit your `.env` file or expose your API key
 - The API proxy server prevents exposing your Anthropic API key to the browser
 - In production, add appropriate CORS restrictions to `server.js`
-
