@@ -4,6 +4,7 @@ import { AudioEngine } from './audio_engine.js';
 import { HandInput } from './hand_input.js';
 import { Renderer } from './renderer.js';
 import { PatchManager } from './patch_manager.js';
+import { LLMService } from './llm_anthropic_service.js';
 
 const App = {
   initialized: false,
@@ -66,6 +67,9 @@ const App = {
         firstPatch.visuals || {},
         firstPatch.audio || AppConfig.audioDefaults
       );
+
+      // Initialize LLM service
+      await LLMService.init();
     } catch (error) {
       console.error('Failed to load patches:', error);
       alert(
@@ -158,21 +162,18 @@ const App = {
   openLlmInterface() {
     this.elements.patchPanel.classList.add('input-mode');
     this.elements.patchButtonsContainer.classList.add('hidden');
+    this.elements.llmInputContainer.classList.add('visible');
+    // Focus after animation completes
     setTimeout(() => {
-      this.elements.llmInputContainer.classList.add('visible');
-      setTimeout(() => {
-        this.elements.llmQueryInput.focus();
-      }, 300);
+      this.elements.llmQueryInput.focus();
     }, 300);
   },
 
   closeLlmInterface() {
+    this.elements.patchPanel.classList.remove('input-mode');
+    this.elements.patchButtonsContainer.classList.remove('hidden');
     this.elements.llmInputContainer.classList.remove('visible');
-    setTimeout(() => {
-      this.elements.patchPanel.classList.remove('input-mode');
-      this.elements.patchButtonsContainer.classList.remove('hidden');
-      this.elements.llmStatus.textContent = '';
-    }, 300);
+    this.elements.llmStatus.textContent = '';
   },
 
   async generatePatchFromQuery() {
@@ -201,18 +202,15 @@ const App = {
         console.log('Input is not valid JSON, attempting LLM generation');
         this.elements.llmStatus.textContent = 'Calling LLM...';
 
-        // TODO: Implement actual LLM API call here
-        // const response = await fetch('/api/generate-patch', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ description: query })
-        // });
-        // patch = await response.json();
-
-        // For now, show not implemented message
-        this.elements.llmStatus.textContent =
-          'LLM generation not yet implemented';
-        return;
+        try {
+          patch = await LLMService.generatePatch(query);
+          console.log('LLM generated patch:', patch);
+        } catch (llmError) {
+          console.error('LLM generation failed:', llmError);
+          this.elements.llmStatus.textContent =
+            llmError.message || 'Failed to generate patch';
+          return;
+        }
       }
 
       if (PatchManager.addPatch(patch)) {
@@ -225,21 +223,14 @@ const App = {
           loadedPatch.audio || AppConfig.audioDefaults
         );
 
-        // Add everything immediately
         this.updateCustomPatchButtons();
         this.updatePatchButtons(newIndex);
 
         this.elements.llmStatus.textContent = `Created: ${patch.name}`;
-        this.elements.llmStatus.style.opacity = '1';
-
-        // Just close after a brief moment for user to see message
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            this.closeLlmInterface();
-            this.elements.llmQueryInput.value = '';
-            this.elements.llmStatus.style.opacity = '0';
-          });
-        });
+        setTimeout(() => {
+          this.closeLlmInterface();
+          this.elements.llmQueryInput.value = '';
+        }, 1500);
       } else {
         this.elements.llmStatus.textContent = 'Invalid patch format';
       }
@@ -278,13 +269,6 @@ const App = {
 
     // Check if we have custom patches
     const hasCustomPatch = allPatches.length > defaultPatchCount;
-
-    // Update panel height class
-    if (hasCustomPatch) {
-      this.elements.patchPanel.classList.add('has-custom-patch');
-    } else {
-      this.elements.patchPanel.classList.remove('has-custom-patch');
-    }
 
     // Enable/disable the plus button based on custom patch limit (1)
     this.elements.openLlmButton.disabled = hasCustomPatch;
