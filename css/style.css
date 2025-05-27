@@ -342,3 +342,8 @@ body {
 .patch-buttons-container.hidden {
   display: none;
 }
+
+.patch-panel.transitioning .patch-buttons-container {
+  opacity: 0;
+  pointer-events: none;
+}

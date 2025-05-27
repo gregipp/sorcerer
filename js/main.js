@@ -170,18 +170,55 @@ const App = {
   },
 
   closeLlmInterface() {
+    // Clear input content IMMEDIATELY
+    this.elements.llmQueryInput.value = '';
+
+    // Start closing
     this.elements.patchPanel.classList.remove('input-mode');
-    this.elements.patchButtonsContainer.classList.remove('hidden');
     this.elements.llmInputContainer.classList.remove('visible');
     this.elements.llmStatus.textContent = '';
 
-    // Update the has-custom-patch class after removing input-mode
-    const allPatches = PatchManager.getAllPatches();
-    const hasCustomPatch =
-      allPatches.length > this.elements.patchButtons.length;
-    if (hasCustomPatch) {
-      this.elements.patchPanel.classList.add('has-custom-patch');
+    // Check if we're actually transitioning
+    const computedStyle = window.getComputedStyle(this.elements.patchPanel);
+    const currentWidth = computedStyle.width;
+
+    // If already at target width, just show buttons immediately
+    if (currentWidth === '50px') {
+      this.elements.patchButtonsContainer.classList.remove('hidden');
+      this.updateCustomPatchButtons();
+      this.updatePatchButtons(PatchManager.currentPatchIndex); // Highlight the button
+      return;
     }
+
+    let transitionHandled = false;
+
+    const handleTransitionEnd = (e) => {
+      // Check for ANY property transition on the panel
+      if (e.target === this.elements.patchPanel && !transitionHandled) {
+        transitionHandled = true;
+
+        // Remove the listener
+        this.elements.patchPanel.removeEventListener(
+          'transitionend',
+          handleTransitionEnd
+        );
+
+        // Show buttons container FIRST
+        this.elements.patchButtonsContainer.classList.remove('hidden');
+
+        // Then update custom patch buttons
+        this.updateCustomPatchButtons();
+
+        // Finally update button highlighting
+        this.updatePatchButtons(PatchManager.currentPatchIndex);
+      }
+    };
+
+    // Listen for transition end
+    this.elements.patchPanel.addEventListener(
+      'transitionend',
+      handleTransitionEnd
+    );
   },
 
   async generatePatchFromQuery() {
@@ -238,10 +275,7 @@ const App = {
         this.elements.llmStatus.textContent = `Created: ${patch.name}`;
 
         // Brief delay to show success message
-        setTimeout(() => {
-          this.closeLlmInterface();
-          this.elements.llmQueryInput.value = '';
-        }, 800);
+        this.closeLlmInterface();
       } else {
         this.elements.llmStatus.textContent = 'Invalid patch format';
       }
@@ -266,7 +300,6 @@ const App = {
       button.classList.toggle('active', customIndex === activeIndex);
     });
   },
-
   updateCustomPatchButtons() {
     // Remove existing custom patch buttons
     const existingCustomButtons = document.querySelectorAll(
@@ -281,18 +314,16 @@ const App = {
     // Check if we have custom patches
     const hasCustomPatch = allPatches.length > defaultPatchCount;
 
-    // Only add the has-custom-patch class if we're not in input mode
-    if (!this.elements.patchPanel.classList.contains('input-mode')) {
-      this.elements.patchPanel.classList.toggle(
-        'has-custom-patch',
-        hasCustomPatch
-      );
-    }
+    // Add the has-custom-patch class
+    this.elements.patchPanel.classList.toggle(
+      'has-custom-patch',
+      hasCustomPatch
+    );
 
     // Enable/disable the plus button based on custom patch limit (1)
     this.elements.openLlmButton.disabled = hasCustomPatch;
 
-    // Add custom patch buttons after the default patches and before the LLM button
+    // Add custom patch buttons
     if (hasCustomPatch) {
       const patch = allPatches[defaultPatchCount];
       const button = this.createCustomPatchButton(patch, defaultPatchCount);
