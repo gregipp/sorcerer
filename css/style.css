@@ -180,6 +180,11 @@ body {
   transition: visibility 0s, opacity 0.3s ease-in-out 0.3s;
 }
 
+.llm-input-container:not(.visible) * {
+  opacity: 0;
+  transition: opacity 0.1s ease-out;
+}
+
 .llm-input-header {
   display: flex;
   justify-content: space-between;

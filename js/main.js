@@ -4,7 +4,7 @@ import { AudioEngine } from './audio_engine.js';
 import { HandInput } from './hand_input.js';
 import { Renderer } from './renderer.js';
 import { PatchManager } from './patch_manager.js';
-import { LLMService } from './llm_anthropic_service.js';
+import { LLMService } from './llm_service.js';
 
 const App = {
   initialized: false,
